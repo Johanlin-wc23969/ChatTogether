@@ -14,7 +14,13 @@ interface RemoteRoomState extends Omit<RoomState, "cooldownUntil"> {
 
 interface ServerMessage {
   type: string;
-  data: RemoteRoomState;
+  data: RemoteRoomState | VoiceSignal;
+}
+
+export interface VoiceSignal {
+  from: string;
+  signalType: "offer" | "answer" | "ice" | "stop";
+  payload?: unknown;
 }
 
 const pendingJoinRequests = new Map<string, Promise<CreateRoomResponse | null>>();
@@ -26,6 +32,7 @@ export function useRemoteRoom() {
   const [draftMaxParticipants, setDraftMaxParticipants] = useState(4);
   const [now, setNow] = useState(() => Date.now());
   const socketRef = useRef<WebSocket | null>(null);
+  const voiceSignalHandlerRef = useRef<((signal: VoiceSignal) => void) | null>(null);
 
   useEffect(() => {
     const handle = window.setInterval(() => setNow(Date.now()), 250);
@@ -41,7 +48,10 @@ export function useRemoteRoom() {
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data) as ServerMessage;
       if (message.type === "room_state") {
-        setRoom(normalizeRoom(message.data, nextUserId));
+        setRoom(normalizeRoom(message.data as RemoteRoomState, nextUserId));
+      }
+      if (message.type === "voice_signal") {
+        voiceSignalHandlerRef.current?.(message.data as VoiceSignal);
       }
     };
 
@@ -94,6 +104,17 @@ export function useRemoteRoom() {
     socket.send(JSON.stringify({ type, data }));
   }, []);
 
+  const sendVoiceSignal = useCallback(
+    (target: string, signalType: VoiceSignal["signalType"], payload?: unknown) => {
+      send("voice_signal", { target, signalType, payload });
+    },
+    [send],
+  );
+
+  const setVoiceSignalHandler = useCallback((handler: ((signal: VoiceSignal) => void) | null) => {
+    voiceSignalHandlerRef.current = handler;
+  }, []);
+
   return useMemo(
     () => ({
       room,
@@ -115,8 +136,10 @@ export function useRemoteRoom() {
       requestLocalSpeak: () => send("request_speak"),
       requestSide: (side: DebateSide) => send("request_side", { side }),
       endLocalSpeaking: () => send("end_speak"),
+      sendVoiceSignal,
+      setVoiceSignalHandler,
     }),
-    [createNewRoom, draftCategory, draftMaxParticipants, now, room, send, userId],
+    [createNewRoom, draftCategory, draftMaxParticipants, now, room, send, sendVoiceSignal, setVoiceSignalHandler, userId],
   );
 }
 

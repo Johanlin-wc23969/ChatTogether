@@ -4,10 +4,17 @@ import { CreateRoomPanel } from "../components/CreateRoomPanel";
 import { Toast } from "../components/Toast";
 import { WaitingRoom } from "../components/WaitingRoom";
 import { useRemoteRoom } from "./useRemoteRoom";
+import { useRoomVoice } from "./useRoomVoice";
 import "./app.css";
 
 export function App() {
   const roomApi = useRemoteRoom();
+  const voice = useRoomVoice(
+    roomApi.room,
+    roomApi.userId,
+    roomApi.sendVoiceSignal,
+    roomApi.setVoiceSignalHandler,
+  );
   const [toast, setToast] = useState("");
 
   const showToast = (message: string) => {
@@ -71,7 +78,8 @@ export function App() {
           userId={roomApi.userId}
           onRequestLocalSpeak={roomApi.requestLocalSpeak}
           onEndLocalSpeaking={roomApi.endLocalSpeaking}
-          onRequestSide={roomApi.requestSide}
+          voiceStatus={voice.voiceStatus}
+          voiceError={voice.voiceError}
         />
       )}
 

@@ -1,4 +1,5 @@
 import { Mic, Square } from "lucide-react";
+import type { VoiceStatus } from "../app/useRoomVoice";
 import type { DebateSide, Participant, RoomState } from "../domain/types";
 import { PersonaAvatar } from "./PersonaAvatar";
 
@@ -8,7 +9,8 @@ interface ActiveDebateRoomProps {
   userId: string | null;
   onRequestLocalSpeak: () => void;
   onEndLocalSpeaking: () => void;
-  onRequestSide: (side: DebateSide) => void;
+  voiceStatus: VoiceStatus;
+  voiceError: string;
 }
 
 export function ActiveDebateRoom({
@@ -17,7 +19,8 @@ export function ActiveDebateRoom({
   userId,
   onRequestLocalSpeak,
   onEndLocalSpeaking,
-  onRequestSide,
+  voiceStatus,
+  voiceError,
 }: ActiveDebateRoomProps) {
   const speaker = room.participants.find((participant) => participant.id === room.currentSpeakerId);
   const currentParticipant = room.participants.find((participant) => participant.id === userId);
@@ -60,11 +63,14 @@ export function ActiveDebateRoom({
       </section>
 
       <section className="side-members-board" aria-label="双方阵营">
-        <SideMembers title="正方" side="pro" room={room} onRequestSide={onRequestSide} />
-        <SideMembers title="反方" side="con" room={room} onRequestSide={onRequestSide} />
+        <SideMembers title="正方" side="pro" room={room} />
+        <SideMembers title="反方" side="con" room={room} />
       </section>
 
       <footer className="active-actions">
+        <div className={`voice-state voice-${voiceStatus}`} aria-live="polite">
+          {voiceError || voiceStatusLabel(voiceStatus, isSpeaking, Boolean(speaker))}
+        </div>
         <button type="button" onClick={onRequestLocalSpeak} disabled={speakDisabled}>
           <Mic size={20} />
           {speakLabel(currentParticipant?.side, isSpeaking, isQueued, cooldownLeft)}
@@ -82,10 +88,9 @@ interface SideMembersProps {
   title: string;
   side: DebateSide;
   room: RoomState;
-  onRequestSide: (side: DebateSide) => void;
 }
 
-function SideMembers({ title, side, room, onRequestSide }: SideMembersProps) {
+function SideMembers({ title, side, room }: SideMembersProps) {
   const queue = side === "pro" ? room.proQueue : room.conQueue;
   const { priorityMembers, idleMembers } = splitSideMembers(room, side, queue);
 
@@ -93,9 +98,6 @@ function SideMembers({ title, side, room, onRequestSide }: SideMembersProps) {
     <div className={`side-members ${side === "pro" ? "pro-side" : "con-side"}`}>
       <div className="side-members-heading">
         <span>{title}</span>
-        <button type="button" onClick={() => onRequestSide(side)}>
-          测试排队
-        </button>
       </div>
       <div className="side-member-main">
         {priorityMembers.map((participant) => (
@@ -154,4 +156,13 @@ function speakLabel(
   if (side === "pro") return "作为正方申请发言";
   if (side === "con") return "作为反方申请发言";
   return "申请发言";
+}
+
+function voiceStatusLabel(voiceStatus: VoiceStatus, isSpeaking: boolean, hasSpeaker: boolean) {
+  if (!hasSpeaker) return "等待语音连接";
+  if (voiceStatus === "connecting") return "正在连接麦克风";
+  if (voiceStatus === "speaking" || isSpeaking) return "麦克风已开启";
+  if (voiceStatus === "listening") return "正在收听发言";
+  if (voiceStatus === "blocked") return "麦克风不可用";
+  return "语音待机";
 }

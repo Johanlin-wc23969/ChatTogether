@@ -79,6 +79,18 @@ type ServerMessage struct {
 	Data interface{} `json:"data"`
 }
 
+type VoiceSignalPayload struct {
+	Target     string          `json:"target"`
+	SignalType string          `json:"signalType"`
+	Payload    json.RawMessage `json:"payload"`
+}
+
+type ForwardedVoiceSignal struct {
+	From       string          `json:"from"`
+	SignalType string          `json:"signalType"`
+	Payload    json.RawMessage `json:"payload"`
+}
+
 type CreateRoomRequest struct {
 	Category        TopicCategory `json:"category"`
 	MaxParticipants int           `json:"maxParticipants"`
@@ -382,10 +394,17 @@ func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) 
 		if room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == userID {
 			endSpeaking(room, time.Now())
 		}
+	case "voice_signal":
+		var data VoiceSignalPayload
+		if json.Unmarshal(msg.Data, &data) == nil {
+			h.forwardVoiceSignalLocked(roomID, userID, data)
+		}
 	}
 	h.mu.Unlock()
 
-	h.broadcast(roomID)
+	if msg.Type != "voice_signal" {
+		h.broadcast(roomID)
+	}
 }
 
 func (h *RoomHub) tick() {
@@ -431,6 +450,30 @@ func (h *RoomHub) sendState(roomID string, conn *websocket.Conn) {
 	room := cloneRoom(h.rooms[roomID])
 	h.mu.Unlock()
 	_ = conn.WriteJSON(ServerMessage{Type: "room_state", Data: room})
+}
+
+func (h *RoomHub) forwardVoiceSignalLocked(roomID, fromUserID string, signal VoiceSignalPayload) {
+	room := h.rooms[roomID]
+	if room == nil || signal.Target == "" || signal.SignalType == "" {
+		return
+	}
+	if findParticipant(room, fromUserID) == nil || findParticipant(room, signal.Target) == nil {
+		return
+	}
+
+	message := ServerMessage{
+		Type: "voice_signal",
+		Data: ForwardedVoiceSignal{
+			From:       fromUserID,
+			SignalType: signal.SignalType,
+			Payload:    signal.Payload,
+		},
+	}
+	for conn, info := range h.clients[roomID] {
+		if info.UserID == signal.Target {
+			_ = conn.WriteJSON(message)
+		}
+	}
 }
 
 func (h *RoomHub) createParticipant(room *RoomState, userID string, isHost bool) Participant {
