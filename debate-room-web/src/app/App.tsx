@@ -1,0 +1,123 @@
+import { useState } from "react";
+import { ActiveDebateRoom } from "../components/ActiveDebateRoom";
+import { CreateRoomPanel } from "../components/CreateRoomPanel";
+import { Toast } from "../components/Toast";
+import { WaitingRoom } from "../components/WaitingRoom";
+import { useRemoteRoom } from "./useRemoteRoom";
+import "./app.css";
+
+export function App() {
+  const roomApi = useRemoteRoom();
+  const [toast, setToast] = useState("");
+
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 2200);
+  };
+
+  const inviteUrl = roomApi.room
+    ? `${window.location.origin}${window.location.pathname}?room=${roomApi.room.roomId}`
+    : `${window.location.origin}${window.location.pathname}`;
+
+  const copyInvite = async () => {
+    const copied = await copyText(inviteUrl);
+    if (copied) {
+      showToast("邀请链接已复制");
+    } else {
+      showToast("复制失败，请手动复制链接");
+    }
+  };
+
+  return (
+    <main className="app-shell">
+      <section className="topbar">
+        <div>
+          <p className="eyebrow">Web MVP</p>
+          <h1>匿名辩论房</h1>
+        </div>
+        <div className="room-code">{roomApi.room?.roomId ?? "未创建"}</div>
+      </section>
+
+      {!roomApi.room ? (
+        <CreateRoomPanel
+          category={roomApi.draftCategory}
+          maxParticipants={roomApi.draftMaxParticipants}
+          onCategoryChange={roomApi.setCategory}
+          onMaxParticipantsChange={roomApi.setMaxParticipants}
+          onCreateRoom={() => {
+            roomApi.createNewRoom();
+            showToast("房间已创建");
+          }}
+        />
+      ) : roomApi.room.status === "waiting" ? (
+        <WaitingRoom
+          room={roomApi.room}
+          inviteUrl={inviteUrl}
+          onCopyInvite={copyInvite}
+          onAddParticipant={roomApi.addParticipant}
+          onCloseRoom={roomApi.closeRoom}
+          onStartRoom={() => {
+            if (!roomApi.room || roomApi.room.participants.length < 3) {
+              showToast("至少 3 人可以开始");
+              return;
+            }
+            roomApi.start();
+          }}
+        />
+      ) : (
+        <ActiveDebateRoom
+          room={roomApi.room}
+          now={roomApi.now}
+          userId={roomApi.userId}
+          onRequestLocalSpeak={roomApi.requestLocalSpeak}
+          onEndLocalSpeaking={roomApi.endLocalSpeaking}
+          onRequestSide={roomApi.requestSide}
+        />
+      )}
+
+      <Toast message={toast} />
+    </main>
+  );
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the textarea fallback for browsers that block clipboard permissions.
+    }
+  }
+
+  const visibleInput = document.querySelector<HTMLInputElement>('input[aria-label="邀请链接"]');
+  if (visibleInput) {
+    visibleInput.focus();
+    visibleInput.select();
+    visibleInput.setSelectionRange(0, visibleInput.value.length);
+    try {
+      if (document.execCommand("copy")) {
+        return true;
+      }
+    } catch {
+      // Continue to the hidden textarea fallback.
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "true");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  textarea.style.top = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  textarea.setSelectionRange(0, textarea.value.length);
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}

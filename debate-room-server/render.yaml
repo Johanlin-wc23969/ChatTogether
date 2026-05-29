@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: debate-room-server
+    env: go
+    plan: free
+    buildCommand: go build -o app .
+    startCommand: ./app
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:5173
