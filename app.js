@@ -117,7 +117,6 @@ const els = {
   sizeOptions: document.querySelector("#sizeOptions"),
   createRoomButton: document.querySelector("#createRoomButton"),
   copyInviteButton: document.querySelector("#copyInviteButton"),
-  addParticipantButton: document.querySelector("#addParticipantButton"),
   startRoomButton: document.querySelector("#startRoomButton"),
   topicCategory: document.querySelector("#topicCategory"),
   topicTitle: document.querySelector("#topicTitle"),
@@ -176,18 +175,9 @@ function bindEvents() {
     }
   });
 
-  els.addParticipantButton.addEventListener("click", () => {
-    if (state.participants.length >= state.maxParticipants) {
-      showToast("房间已满");
-      return;
-    }
-    addParticipant(false);
-    saveAndRender();
-  });
-
   els.startRoomButton.addEventListener("click", () => {
-    if (state.participants.length < 3) {
-      showToast("至少 3 人可以开始");
+    if (state.participants.length !== state.maxParticipants) {
+      showToast("房间满员后可以开始");
       return;
     }
     state.status = "active";
@@ -226,12 +216,6 @@ function createParticipant(id, isHost, roomState = state) {
     persona,
     joinedAt: Date.now(),
   };
-}
-
-function addParticipant(isHost) {
-  const id = `bot-${Math.random().toString(36).slice(2, 7)}`;
-  state.participants.push(createParticipant(id, isHost));
-  balanceSides();
 }
 
 function chooseBalancedSide(roomState = state) {
@@ -446,8 +430,8 @@ function renderActions() {
   const isQueued = state.proQueue.includes("you") || state.conQueue.includes("you");
   const cooldownLeft = Math.max(0, Math.ceil((state.cooldownUntil - Date.now()) / 1000));
 
-  els.startRoomButton.disabled = state.status === "active";
-  els.addParticipantButton.disabled = state.participants.length >= state.maxParticipants || state.status === "active";
+  els.startRoomButton.disabled = state.status === "active" || state.participants.length !== state.maxParticipants;
+  els.startRoomButton.textContent = state.participants.length === state.maxParticipants ? "开始辩论" : "满员后开始";
   els.endSpeakButton.disabled = !isSpeaking;
   els.speakButton.disabled = state.status !== "active" || isSpeaking || isQueued || cooldownLeft > 0;
 

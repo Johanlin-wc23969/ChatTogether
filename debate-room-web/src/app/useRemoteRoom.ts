@@ -17,6 +17,8 @@ interface ServerMessage {
   data: RemoteRoomState;
 }
 
+const pendingJoinRequests = new Map<string, Promise<CreateRoomResponse | null>>();
+
 export function useRemoteRoom() {
   const [room, setRoom] = useState<RoomState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -67,16 +69,13 @@ export function useRemoteRoom() {
   }, [connectSocket, draftCategory, draftMaxParticipants]);
 
   const joinRoom = useCallback(async (roomId: string) => {
-    const response = await fetch(`${config.apiBaseUrl}/api/rooms/${roomId}/join`, {
-      method: "POST",
-    });
-    if (!response.ok) {
+    const payload = await requestJoinRoom(roomId);
+    if (!payload) {
       setRoom(null);
       setUserId(null);
       window.history.replaceState({}, "", window.location.pathname);
       return;
     }
-    const payload = (await response.json()) as CreateRoomResponse;
     setUserId(payload.userId);
     setRoom(normalizeRoom(payload.room, payload.userId));
     connectSocket(payload.room.roomId, payload.userId);
@@ -112,10 +111,6 @@ export function useRemoteRoom() {
         setUserId(null);
         window.history.replaceState({}, "", window.location.pathname);
       },
-      addParticipant: async () => {
-        if (!room) return;
-        await fetch(`${config.apiBaseUrl}/api/rooms/${room.roomId}/mock`, { method: "POST" });
-      },
       start: () => send("start_room"),
       requestLocalSpeak: () => send("request_speak"),
       requestSide: (side: DebateSide) => send("request_side", { side }),
@@ -130,4 +125,26 @@ function normalizeRoom(room: RemoteRoomState, userId: string): RoomState {
     ...room,
     cooldownUntil: room.cooldowns?.[userId] ?? room.cooldownUntil ?? 0,
   };
+}
+
+function requestJoinRoom(roomId: string) {
+  const pending = pendingJoinRequests.get(roomId);
+  if (pending) {
+    return pending;
+  }
+
+  const request = fetch(`${config.apiBaseUrl}/api/rooms/${roomId}/join`, { method: "POST" })
+    .then(async (response) => {
+      if (!response.ok) {
+        return null;
+      }
+      return (await response.json()) as CreateRoomResponse;
+    })
+    .catch(() => null)
+    .finally(() => {
+      pendingJoinRequests.delete(roomId);
+    });
+
+  pendingJoinRequests.set(roomId, request);
+  return request;
 }

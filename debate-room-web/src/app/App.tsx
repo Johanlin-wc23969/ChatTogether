@@ -53,12 +53,12 @@ export function App() {
         <WaitingRoom
           room={roomApi.room}
           inviteUrl={inviteUrl}
+          userId={roomApi.userId}
           onCopyInvite={copyInvite}
-          onAddParticipant={roomApi.addParticipant}
           onCloseRoom={roomApi.closeRoom}
           onStartRoom={() => {
-            if (!roomApi.room || roomApi.room.participants.length < 3) {
-              showToast("至少 3 人可以开始");
+            if (!roomApi.room || roomApi.room.participants.length !== roomApi.room.maxParticipants) {
+              showToast("房间满员后可以开始");
               return;
             }
             roomApi.start();

@@ -42,7 +42,7 @@ export function CreateRoomPanel({
       <fieldset className="field">
         <legend>人数上限</legend>
         <div className="segmented">
-          {[3, 4, 5, 6].map((size) => (
+          {[2, 3, 4, 5, 6].map((size) => (
             <button
               key={size}
               type="button"

@@ -1,4 +1,4 @@
-import { Copy, LogOut, Play, Plus } from "lucide-react";
+import { Copy, LogOut, Play } from "lucide-react";
 import { categoryNames } from "../domain/content";
 import type { RoomState } from "../domain/types";
 import { PersonaAvatar } from "./PersonaAvatar";
@@ -6,8 +6,8 @@ import { PersonaAvatar } from "./PersonaAvatar";
 interface WaitingRoomProps {
   room: RoomState;
   inviteUrl: string;
+  userId: string | null;
   onCopyInvite: () => void;
-  onAddParticipant: () => void;
   onStartRoom: () => void;
   onCloseRoom: () => void;
 }
@@ -15,11 +15,15 @@ interface WaitingRoomProps {
 export function WaitingRoom({
   room,
   inviteUrl,
+  userId,
   onCopyInvite,
-  onAddParticipant,
   onStartRoom,
   onCloseRoom,
 }: WaitingRoomProps) {
+  const currentParticipant = room.participants.find((participant) => participant.id === userId);
+  const isHost = Boolean(currentParticipant?.isHost);
+  const isFull = room.participants.length === room.maxParticipants;
+
   return (
     <section className="waiting-screen">
       <header className="waiting-header">
@@ -53,18 +57,12 @@ export function WaitingRoom({
           <Copy size={18} />
           复制邀请链接
         </button>
-        <button
-          type="button"
-          onClick={onAddParticipant}
-          disabled={room.participants.length >= room.maxParticipants}
-        >
-          <Plus size={18} />
-          加入测试用户
-        </button>
-        <button className="primary-inline" type="button" onClick={onStartRoom}>
-          <Play size={18} />
-          开始辩论
-        </button>
+        {isHost ? (
+          <button className="primary-inline" type="button" onClick={onStartRoom} disabled={!isFull}>
+            <Play size={18} />
+            {isFull ? "开始辩论" : "满员后开始"}
+          </button>
+        ) : null}
         <button type="button" onClick={onCloseRoom} aria-label="关闭房间">
           <LogOut size={18} />
         </button>

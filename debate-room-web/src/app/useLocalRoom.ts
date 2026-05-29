@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  addMockParticipant,
   changeCategory,
   changeMaxParticipants,
   createRoom,
@@ -45,8 +44,6 @@ export function useLocalRoom() {
       },
       createNewRoom: () => setRoom(createRoom(draftCategory, draftMaxParticipants)),
       closeRoom: () => setRoom(null),
-      addParticipant: () =>
-        setRoom((current) => (current ? addMockParticipant(current) : current)),
       start: () => setRoom((current) => (current ? startRoom(current) : current)),
       requestLocalSpeak: () =>
         setRoom((current) => (current ? requestSpeak(current, LOCAL_USER_ID) : current)),

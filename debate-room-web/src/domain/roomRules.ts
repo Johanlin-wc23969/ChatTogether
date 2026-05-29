@@ -72,7 +72,7 @@ export function changeMaxParticipants(room: RoomState, maxParticipants: number):
 }
 
 export function startRoom(room: RoomState): RoomState {
-  if (room.participants.length < 3 || room.status === "active") {
+  if (room.participants.length !== room.maxParticipants || room.status === "active") {
     return room;
   }
 

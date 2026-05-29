@@ -37,7 +37,6 @@ http://localhost:8080
 
 - 创建房间
 - 加入房间
-- 加入测试用户
 - 随机辩题
 - 匿名角色分配
 - 正反方自动平衡
@@ -55,7 +54,6 @@ http://localhost:8080
 GET  /health
 POST /api/rooms
 POST /api/rooms/:roomId/join
-POST /api/rooms/:roomId/mock
 GET  /ws?roomId=:roomId&userId=:userId
 ```
 

@@ -6,5 +6,7 @@ services:
     buildCommand: go build -o app .
     startCommand: ./app
     envVars:
+      - key: PORT
+        value: "10000"          # Render 常用端口
       - key: ALLOWED_ORIGINS
-        value: http://localhost:5173
+        value: "https://chat-together-mu.vercel.app"

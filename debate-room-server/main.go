@@ -186,7 +186,7 @@ func handleRooms(w http.ResponseWriter, r *http.Request) {
 	if req.Category == "" {
 		req.Category = "technology"
 	}
-	if req.MaxParticipants < 3 || req.MaxParticipants > 6 {
+	if req.MaxParticipants < 2 || req.MaxParticipants > 6 {
 		req.MaxParticipants = 4
 	}
 
@@ -213,14 +213,6 @@ func handleRoomAction(w http.ResponseWriter, r *http.Request) {
 		}
 		hub.broadcast(roomID)
 		writeJSON(w, http.StatusOK, JoinRoomResponse{Room: room, UserID: userID})
-	case r.Method == http.MethodPost && action == "mock":
-		room, _, err := hub.joinRoom(roomID, false)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
-			return
-		}
-		hub.broadcast(roomID)
-		writeJSON(w, http.StatusOK, room)
 	default:
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	}
@@ -376,7 +368,7 @@ func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) 
 
 	switch msg.Type {
 	case "start_room":
-		startRoom(room)
+		startRoom(room, userID)
 	case "request_speak":
 		requestSpeak(room, userID, time.Now())
 	case "request_side":
@@ -451,8 +443,12 @@ func (h *RoomHub) createParticipant(room *RoomState, userID string, isHost bool)
 	}
 }
 
-func startRoom(room *RoomState) {
-	if room.Status == StatusActive || len(room.Participants) < 3 {
+func startRoom(room *RoomState, userID string) {
+	participant := findParticipant(room, userID)
+	if participant == nil || !participant.IsHost {
+		return
+	}
+	if room.Status == StatusActive || len(room.Participants) != room.MaxParticipants {
 		return
 	}
 	assignSides(room)
@@ -726,7 +722,14 @@ func loadConfig() ServerConfig {
 
 	originsValue := os.Getenv("ALLOWED_ORIGINS")
 	if originsValue == "" {
-		originsValue = "http://localhost:5173,http://127.0.0.1:5173"
+		originsValue = strings.Join([]string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"http://localhost:5174",
+			"http://127.0.0.1:5174",
+			"http://localhost:5175",
+			"http://127.0.0.1:5175",
+		}, ",")
 	}
 
 	allowedOrigins := map[string]bool{}
