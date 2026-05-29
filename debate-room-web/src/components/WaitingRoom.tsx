@@ -22,7 +22,8 @@ export function WaitingRoom({
 }: WaitingRoomProps) {
   const currentParticipant = room.participants.find((participant) => participant.id === userId);
   const isHost = Boolean(currentParticipant?.isHost);
-  const isFull = room.participants.length === room.maxParticipants;
+  const onlineParticipants = room.participants.filter((participant) => participant.isOnline);
+  const isFull = onlineParticipants.length === room.maxParticipants;
 
   return (
     <section className="waiting-screen">
@@ -32,19 +33,13 @@ export function WaitingRoom({
           <h2>{room.topic.title}</h2>
           <p>等待玩家进入</p>
         </div>
-        <div className="waiting-count">
-          <strong>
-            {room.participants.length}/{room.maxParticipants}
-          </strong>
-          <span>已加入</span>
-        </div>
       </header>
 
       <section className="waiting-avatars" aria-label="房间玩家">
         {room.participants.map((participant) => (
           <article className="waiting-avatar-card" key={participant.id}>
             <PersonaAvatar
-              className={participant.id === userId ? "is-local-avatar" : ""}
+              className={`${participant.id === userId ? "is-local-avatar" : ""} ${participant.isOnline ? "" : "is-offline"}`}
               persona={participant.persona}
               size="large"
             />

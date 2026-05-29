@@ -39,6 +39,8 @@ export function createParticipant(room: RoomState, id: string, isHost = false): 
     side: chooseBalancedSide(room),
     persona,
     joinedAt: Date.now(),
+    isOnline: true,
+    disconnectedAt: null,
   };
 }
 

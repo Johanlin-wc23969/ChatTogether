@@ -26,6 +26,7 @@ export interface VoiceSignal {
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
 
 const pendingJoinRequests = new Map<string, Promise<CreateRoomResponse | null>>();
+const roomSessionStorageKey = "anonymous-debate-room-session";
 
 export function useRemoteRoom() {
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -136,6 +137,7 @@ export function useRemoteRoom() {
       }),
     });
     const payload = (await response.json()) as CreateRoomResponse;
+    saveStoredSession(payload.room.roomId, payload.userId);
     setUserId(payload.userId);
     setRoom(normalizeRoom(payload.room, payload.userId));
     window.history.replaceState({}, "", `${window.location.pathname}?room=${payload.room.roomId}`);
@@ -147,9 +149,11 @@ export function useRemoteRoom() {
     if (!payload) {
       setRoom(null);
       setUserId(null);
+      clearStoredSession(roomId);
       window.history.replaceState({}, "", window.location.pathname);
       return;
     }
+    saveStoredSession(payload.room.roomId, payload.userId);
     setUserId(payload.userId);
     setRoom(normalizeRoom(payload.room, payload.userId));
     connectSocket(payload.room.roomId, payload.userId);
@@ -159,8 +163,15 @@ export function useRemoteRoom() {
     const roomId = new URLSearchParams(window.location.search).get("room");
     if (!roomId || room || userId) return;
 
+    const storedSession = readStoredSession();
+    if (storedSession?.roomId === roomId) {
+      setUserId(storedSession.userId);
+      connectSocket(storedSession.roomId, storedSession.userId);
+      return;
+    }
+
     void joinRoom(roomId);
-  }, [joinRoom, room, userId]);
+  }, [connectSocket, joinRoom, room, userId]);
 
   const send = useCallback((type: string, data?: unknown) => {
     const socket = socketRef.current;
@@ -191,6 +202,7 @@ export function useRemoteRoom() {
       setMaxParticipants: setDraftMaxParticipants,
       createNewRoom,
       closeRoom: () => {
+        const roomId = sessionRef.current?.roomId ?? room?.roomId;
         manualCloseRef.current = true;
         clearReconnectTimer();
         sessionRef.current = null;
@@ -200,6 +212,7 @@ export function useRemoteRoom() {
         setConnectionStatus("idle");
         setRoom(null);
         setUserId(null);
+        clearStoredSession(roomId);
         window.history.replaceState({}, "", window.location.pathname);
       },
       start: () => send("start_room"),
@@ -223,6 +236,32 @@ export function useRemoteRoom() {
       userId,
     ],
   );
+}
+
+interface StoredRoomSession {
+  roomId: string;
+  userId: string;
+}
+
+function readStoredSession(): StoredRoomSession | null {
+  try {
+    const value = window.localStorage.getItem(roomSessionStorageKey);
+    return value ? (JSON.parse(value) as StoredRoomSession) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredSession(roomId: string, userId: string) {
+  window.localStorage.setItem(roomSessionStorageKey, JSON.stringify({ roomId, userId }));
+}
+
+function clearStoredSession(roomId?: string) {
+  const storedSession = readStoredSession();
+  if (!storedSession || (roomId && storedSession.roomId !== roomId)) {
+    return;
+  }
+  window.localStorage.removeItem(roomSessionStorageKey);
 }
 
 function normalizeRoom(room: RemoteRoomState, userId: string): RoomState {

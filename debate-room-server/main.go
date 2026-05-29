@@ -17,7 +17,7 @@ const (
 	speakingDuration = 60 * time.Second
 	sideWaitDuration = 10 * time.Second
 	cooldownDuration = 30 * time.Second
-	disconnectGrace  = 15 * time.Second
+	disconnectGrace  = 30 * time.Second
 )
 
 type DebateSide string
@@ -47,11 +47,13 @@ type Persona struct {
 }
 
 type Participant struct {
-	ID       string     `json:"id"`
-	IsHost   bool       `json:"isHost"`
-	Side     DebateSide `json:"side"`
-	Persona  Persona    `json:"persona"`
-	JoinedAt int64      `json:"joinedAt"`
+	ID             string     `json:"id"`
+	IsHost         bool       `json:"isHost"`
+	Side           DebateSide `json:"side"`
+	Persona        Persona    `json:"persona"`
+	JoinedAt       int64      `json:"joinedAt"`
+	IsOnline       bool       `json:"isOnline"`
+	DisconnectedAt *int64     `json:"disconnectedAt"`
 }
 
 type RoomState struct {
@@ -248,7 +250,9 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	hub.addClient(roomID, userID, conn)
+	if hub.addClient(roomID, userID, conn) {
+		hub.broadcast(roomID)
+	}
 	defer func() {
 		if hub.removeClient(roomID, conn) {
 			hub.broadcast(roomID)
@@ -310,7 +314,7 @@ func (h *RoomHub) joinRoom(roomID string, isHost bool) (*RoomState, string, erro
 	return cloneRoom(room), userID, nil
 }
 
-func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) {
+func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.cancelDisconnectTimerLocked(roomID, userID)
@@ -318,6 +322,11 @@ func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) {
 		h.clients[roomID] = map[*websocket.Conn]ClientInfo{}
 	}
 	h.clients[roomID][conn] = ClientInfo{UserID: userID}
+	room := h.rooms[roomID]
+	if room == nil {
+		return false
+	}
+	return markParticipantOnline(room, userID)
 }
 
 func (h *RoomHub) removeClient(roomID string, conn *websocket.Conn) bool {
@@ -340,8 +349,19 @@ func (h *RoomHub) removeClient(roomID string, conn *websocket.Conn) bool {
 		return false
 	}
 
-	h.scheduleDisconnectRemovalLocked(roomID, info.UserID)
-	return false
+	return h.markParticipantDisconnectedLocked(roomID, info.UserID)
+}
+
+func (h *RoomHub) markParticipantDisconnectedLocked(roomID, userID string) bool {
+	room := h.rooms[roomID]
+	if room == nil {
+		return false
+	}
+	changed := markParticipantOffline(room, userID, time.Now())
+	if changed {
+		h.scheduleDisconnectRemovalLocked(roomID, userID)
+	}
+	return changed
 }
 
 func (h *RoomHub) userHasOtherConnectionsLocked(roomID, userID string) bool {
@@ -527,6 +547,7 @@ func (h *RoomHub) createParticipant(room *RoomState, userID string, isHost bool)
 		Side:     SideUnassigned,
 		Persona:  pickPersona(room),
 		JoinedAt: time.Now().UnixMilli(),
+		IsOnline: true,
 	}
 }
 
@@ -535,7 +556,7 @@ func startRoom(room *RoomState, userID string) {
 	if participant == nil || !participant.IsHost {
 		return
 	}
-	if room.Status == StatusActive || len(room.Participants) != room.MaxParticipants {
+	if room.Status == StatusActive || onlineParticipantCount(room) != room.MaxParticipants {
 		return
 	}
 	assignSides(room)
@@ -549,6 +570,9 @@ func startRoom(room *RoomState, userID string) {
 func requestSpeak(room *RoomState, userID string, now time.Time) {
 	participant := findParticipant(room, userID)
 	if participant == nil || room.Status != StatusActive {
+		return
+	}
+	if !participant.IsOnline {
 		return
 	}
 	if participant.Side != SidePro && participant.Side != SideCon {
@@ -577,7 +601,7 @@ func requestSpeak(room *RoomState, userID string, now time.Time) {
 func requestSideSpeak(room *RoomState, side DebateSide) {
 	queue := queueForSide(room, side)
 	for _, participant := range room.Participants {
-		if participant.Side == side && (room.CurrentSpeakerID == nil || *room.CurrentSpeakerID != participant.ID) && !contains(*queue, participant.ID) {
+		if participant.IsOnline && participant.Side == side && (room.CurrentSpeakerID == nil || *room.CurrentSpeakerID != participant.ID) && !contains(*queue, participant.ID) {
 			*queue = append(*queue, participant.ID)
 			break
 		}
@@ -684,6 +708,49 @@ func removeParticipant(room *RoomState, userID string) bool {
 	return removed
 }
 
+func markParticipantOnline(room *RoomState, userID string) bool {
+	participant := findParticipant(room, userID)
+	if participant == nil {
+		return false
+	}
+	if participant.IsOnline && participant.DisconnectedAt == nil {
+		return false
+	}
+	participant.IsOnline = true
+	participant.DisconnectedAt = nil
+	return true
+}
+
+func markParticipantOffline(room *RoomState, userID string, now time.Time) bool {
+	participant := findParticipant(room, userID)
+	if participant == nil || !participant.IsOnline {
+		return false
+	}
+	disconnectedAt := now.UnixMilli()
+	participant.IsOnline = false
+	participant.DisconnectedAt = &disconnectedAt
+	room.ProQueue = removeFromQueue(room.ProQueue, userID)
+	room.ConQueue = removeFromQueue(room.ConQueue, userID)
+	if room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == userID {
+		room.CurrentSpeakerID = nil
+		room.SpeakingEndsAt = nil
+		room.SideWaitingSince = nil
+		room.CurrentSide = oppositeSide(room.CurrentSide)
+		tryStartNextSpeaker(room, now)
+	}
+	return true
+}
+
+func onlineParticipantCount(room *RoomState) int {
+	count := 0
+	for _, participant := range room.Participants {
+		if participant.IsOnline {
+			count++
+		}
+	}
+	return count
+}
+
 func removeFromQueue(queue []string, userID string) []string {
 	next := queue[:0]
 	for _, queuedUserID := range queue {
@@ -771,6 +838,12 @@ func cloneRoom(room *RoomState) *RoomState {
 	}
 	clone := *room
 	clone.Participants = append([]Participant{}, room.Participants...)
+	for index := range clone.Participants {
+		if clone.Participants[index].DisconnectedAt != nil {
+			disconnectedAt := *clone.Participants[index].DisconnectedAt
+			clone.Participants[index].DisconnectedAt = &disconnectedAt
+		}
+	}
 	clone.ProQueue = append([]string{}, room.ProQueue...)
 	clone.ConQueue = append([]string{}, room.ConQueue...)
 	clone.Cooldowns = map[string]int64{}

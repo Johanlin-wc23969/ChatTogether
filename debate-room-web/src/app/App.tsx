@@ -26,6 +26,8 @@ export function App() {
   const inviteUrl = roomApi.room
     ? `${window.location.origin}${window.location.pathname}?room=${roomApi.room.roomId}`
     : `${window.location.origin}${window.location.pathname}`;
+  const onlineParticipantCount =
+    roomApi.room?.participants.filter((participant) => participant.isOnline).length ?? 0;
 
   const copyInvite = async () => {
     const copied = await copyText(inviteUrl);
@@ -44,6 +46,11 @@ export function App() {
           <h1>匿名辩论房</h1>
         </div>
         <div className="topbar-meta">
+          {roomApi.room?.status === "waiting" ? (
+            <div className="room-participant-count">
+              {onlineParticipantCount}/{roomApi.room.maxParticipants}
+            </div>
+          ) : null}
           {roomApi.room ? <ConnectionBadge status={roomApi.connectionStatus} /> : null}
           <div className="room-code">{roomApi.room?.roomId ?? "未创建"}</div>
         </div>
@@ -68,7 +75,11 @@ export function App() {
           onCopyInvite={copyInvite}
           onCloseRoom={roomApi.closeRoom}
           onStartRoom={() => {
-            if (!roomApi.room || roomApi.room.participants.length !== roomApi.room.maxParticipants) {
+            if (
+              !roomApi.room ||
+              roomApi.room.participants.filter((participant) => participant.isOnline).length !==
+                roomApi.room.maxParticipants
+            ) {
               showToast("房间满员后可以开始");
               return;
             }

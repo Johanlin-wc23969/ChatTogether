@@ -27,6 +27,8 @@ export interface Participant {
   side: DebateSide;
   persona: Persona;
   joinedAt: number;
+  isOnline: boolean;
+  disconnectedAt: number | null;
 }
 
 export interface RoomState {

@@ -53,7 +53,7 @@ export function ActiveDebateRoom({
           <PersonaAvatar
             persona={speaker?.persona}
             size="hero"
-            className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"} ${visibleVoiceLevel > 0.08 ? "is-voice-active" : ""}`}
+            className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"} ${visibleVoiceLevel > 0.08 ? "is-voice-active" : ""} ${speaker && !speaker.isOnline ? "is-offline" : ""}`}
           />
           <div className="voice-meter" aria-hidden="true">
             <span />
@@ -129,7 +129,7 @@ function SideMembers({ title, side, room, userId }: SideMembersProps) {
       <div className="side-member-idle">
         {idleMembers.map((participant) => (
           <PersonaAvatar
-            className={`side-member-avatar idle-avatar ${participant.id === userId ? "is-local-avatar" : ""}`}
+            className={`side-member-avatar idle-avatar ${participant.id === userId ? "is-local-avatar" : ""} ${participant.isOnline ? "" : "is-offline"}`}
             key={participant.id}
             persona={participant.persona}
             size="small"
@@ -160,7 +160,12 @@ function avatarStateClass(room: RoomState, queue: string[], participantId: strin
   if (room.currentSpeakerId === participantId) classes.push("is-speaking");
   if (queue.includes(participantId)) classes.push("is-priority");
   if (participantId === userId) classes.push("is-local-avatar");
+  if (!findParticipantOnline(room, participantId)) classes.push("is-offline");
   return classes.join(" ");
+}
+
+function findParticipantOnline(room: RoomState, participantId: string) {
+  return room.participants.find((participant) => participant.id === participantId)?.isOnline ?? true;
 }
 
 function speakLabel(

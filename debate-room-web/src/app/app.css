@@ -20,14 +20,16 @@
 }
 
 .connection-badge,
-.room-code {
+.room-code,
+.room-participant-count {
   min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.connection-badge {
+.connection-badge,
+.room-participant-count {
   min-width: 86px;
   padding: 10px 12px;
   border: 1px solid var(--line);
@@ -36,6 +38,11 @@
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
+}
+
+.room-participant-count {
+  min-width: 58px;
+  color: var(--green);
 }
 
 .connection-connected {
@@ -283,6 +290,7 @@ select {
 }
 
 .persona-image {
+  position: relative;
   display: block;
   overflow: hidden;
   border-radius: 50%;
@@ -311,6 +319,36 @@ select {
     0 0 0 2px rgba(255, 255, 255, 0.92),
     0 0 0 6px rgba(34, 197, 94, 0.18),
     0 14px 30px rgba(29, 41, 57, 0.16);
+}
+
+.persona-image.is-offline {
+  filter: grayscale(1);
+  opacity: 0.62;
+}
+
+.persona-image.is-offline::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(28, 36, 48, 0.42);
+}
+
+.persona-image.is-offline::after {
+  content: "离线";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-size: 12px;
+  font-weight: 900;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.38);
+}
+
+.persona-hero.is-offline::after {
+  font-size: 18px;
 }
 
 .persona-small {
@@ -924,7 +962,39 @@ select {
   }
 
   .topbar {
-    display: grid;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .topbar > div:first-child {
+    display: none;
+  }
+
+  .topbar-meta {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .connection-badge,
+  .room-code,
+  .room-participant-count {
+    min-height: 30px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .connection-badge {
+    min-width: 64px;
+  }
+
+  .room-participant-count {
+    min-width: 48px;
+  }
+
+  .room-code {
+    min-width: 92px;
   }
 
   .status-strip,
@@ -959,12 +1029,25 @@ select {
 
   .current-speaker {
     grid-template-columns: 1fr;
-    padding: 14px 20px 28px;
+    padding: 10px 20px 18px;
   }
 
   .speaker-avatar,
   .speaker-timer {
-    width: min(180px, 58vw);
+    width: min(148px, 46vw);
+  }
+
+  .speaker-timer strong {
+    font-size: clamp(54px, 16vw, 78px);
+  }
+
+  .speaker-timer span,
+  .speaker-identity span {
+    font-size: 12px;
+  }
+
+  .voice-meter {
+    height: 18px;
   }
 
   .action-bar {
