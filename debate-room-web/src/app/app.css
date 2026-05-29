@@ -100,8 +100,107 @@ h1 {
   padding: 22px;
 }
 
+.lobby-screen {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  align-items: stretch;
+  gap: 18px;
+  place-items: stretch;
+}
+
 .create-card {
   width: min(420px, 100%);
+}
+
+.lobby-panel,
+.create-card {
+  min-width: 0;
+}
+
+.lobby-heading button {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #eef2ef;
+  color: var(--ink);
+}
+
+.room-list {
+  display: grid;
+  gap: 10px;
+  max-height: 440px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.room-list-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.room-list-item h3 {
+  margin-bottom: 5px;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.room-list-item span,
+.room-list-meta span,
+.empty-lobby,
+.lobby-loading {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.room-list-meta {
+  display: grid;
+  min-width: 58px;
+  justify-items: center;
+  gap: 2px;
+}
+
+.room-list-meta strong {
+  font-size: 17px;
+}
+
+.room-list-item button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: white;
+  font-weight: 900;
+}
+
+.room-list-item button:disabled {
+  background: #eef2ef;
+  color: var(--muted);
+}
+
+.empty-lobby {
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  border: 1px dashed #c7d5cc;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.lobby-loading {
+  margin: 10px 0 0;
 }
 
 .panel-heading {
@@ -955,6 +1054,7 @@ select {
 
   .topbar,
   .topic-board,
+  .lobby-screen,
   .sides-grid,
   .waiting-header,
   .side-members-board {
@@ -1091,6 +1191,24 @@ select {
 
   .idle-avatar {
     width: 32px;
+  }
+
+  .lobby-screen {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .room-list {
+    max-height: 300px;
+  }
+
+  .room-list-item {
+    grid-template-columns: 1fr auto;
+    gap: 9px;
+  }
+
+  .room-list-item button {
+    grid-column: 1 / -1;
   }
 
 }

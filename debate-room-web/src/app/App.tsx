@@ -62,6 +62,13 @@ export function App() {
           maxParticipants={roomApi.draftMaxParticipants}
           onCategoryChange={roomApi.setCategory}
           onMaxParticipantsChange={roomApi.setMaxParticipants}
+          lobbyRooms={roomApi.lobbyRooms}
+          isLobbyLoading={roomApi.isLobbyLoading}
+          onJoinRoom={(roomId) => {
+            roomApi.joinRoom(roomId);
+            showToast("正在加入房间");
+          }}
+          onRefreshRooms={roomApi.refreshLobbyRooms}
           onCreateRoom={() => {
             roomApi.createNewRoom();
             showToast("房间已创建");

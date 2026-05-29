@@ -7,6 +7,18 @@ interface CreateRoomResponse {
   userId: string;
 }
 
+export interface LobbyRoom {
+  roomId: string;
+  category: TopicCategory;
+  status: "waiting" | "active";
+  topicTitle: string;
+  participantCount: number;
+  onlineCount: number;
+  maxParticipants: number;
+  canJoin: boolean;
+  createdAt: number;
+}
+
 interface RemoteRoomState extends Omit<RoomState, "cooldownUntil"> {
   cooldowns?: Record<string, number>;
   cooldownUntil?: number;
@@ -33,6 +45,8 @@ export function useRemoteRoom() {
   const [userId, setUserId] = useState<string | null>(null);
   const [draftCategory, setDraftCategory] = useState<TopicCategory>("technology");
   const [draftMaxParticipants, setDraftMaxParticipants] = useState(4);
+  const [lobbyRooms, setLobbyRooms] = useState<LobbyRoom[]>([]);
+  const [isLobbyLoading, setIsLobbyLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("idle");
   const [now, setNow] = useState(() => Date.now());
   const socketRef = useRef<WebSocket | null>(null);
@@ -144,6 +158,19 @@ export function useRemoteRoom() {
     connectSocket(payload.room.roomId, payload.userId);
   }, [clearReconnectTimer, connectSocket, draftCategory, draftMaxParticipants]);
 
+  const refreshLobbyRooms = useCallback(async () => {
+    setIsLobbyLoading(true);
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/rooms`);
+      if (!response.ok) return;
+      setLobbyRooms((await response.json()) as LobbyRoom[]);
+    } catch {
+      setLobbyRooms([]);
+    } finally {
+      setIsLobbyLoading(false);
+    }
+  }, []);
+
   const joinRoom = useCallback(async (roomId: string) => {
     const payload = await requestJoinRoom(roomId);
     if (!payload) {
@@ -156,8 +183,16 @@ export function useRemoteRoom() {
     saveStoredSession(payload.room.roomId, payload.userId);
     setUserId(payload.userId);
     setRoom(normalizeRoom(payload.room, payload.userId));
+    window.history.replaceState({}, "", `${window.location.pathname}?room=${payload.room.roomId}`);
     connectSocket(payload.room.roomId, payload.userId);
   }, [connectSocket]);
+
+  useEffect(() => {
+    if (room) return;
+    void refreshLobbyRooms();
+    const handle = window.setInterval(() => void refreshLobbyRooms(), 3000);
+    return () => window.clearInterval(handle);
+  }, [refreshLobbyRooms, room]);
 
   useEffect(() => {
     const roomId = new URLSearchParams(window.location.search).get("room");
@@ -196,18 +231,26 @@ export function useRemoteRoom() {
       now,
       draftCategory,
       draftMaxParticipants,
+      lobbyRooms,
+      isLobbyLoading,
       connectionStatus,
       userId,
       setCategory: setDraftCategory,
       setMaxParticipants: setDraftMaxParticipants,
       createNewRoom,
+      joinRoom,
+      refreshLobbyRooms,
       closeRoom: () => {
         const roomId = sessionRef.current?.roomId ?? room?.roomId;
         manualCloseRef.current = true;
         clearReconnectTimer();
+        const socket = socketRef.current;
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "leave_room" }));
+        }
         sessionRef.current = null;
         reconnectAttemptRef.current = 0;
-        socketRef.current?.close();
+        socket?.close();
         socketRef.current = null;
         setConnectionStatus("idle");
         setRoom(null);
@@ -228,7 +271,11 @@ export function useRemoteRoom() {
       createNewRoom,
       draftCategory,
       draftMaxParticipants,
+      isLobbyLoading,
+      joinRoom,
+      lobbyRooms,
       now,
+      refreshLobbyRooms,
       room,
       send,
       sendVoiceSignal,

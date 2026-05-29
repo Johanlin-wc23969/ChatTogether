@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -104,6 +105,18 @@ type JoinRoomResponse struct {
 	UserID string     `json:"userId"`
 }
 
+type RoomSummary struct {
+	RoomID           string        `json:"roomId"`
+	Category         TopicCategory `json:"category"`
+	Status           RoomStatus    `json:"status"`
+	TopicTitle       string        `json:"topicTitle"`
+	ParticipantCount int           `json:"participantCount"`
+	OnlineCount      int           `json:"onlineCount"`
+	MaxParticipants  int           `json:"maxParticipants"`
+	CanJoin          bool          `json:"canJoin"`
+	CreatedAt        int64         `json:"createdAt"`
+}
+
 type RoomHub struct {
 	mu               sync.Mutex
 	rooms            map[string]*RoomState
@@ -189,6 +202,11 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleRooms(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		writeJSON(w, http.StatusOK, hub.listRooms())
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		return
@@ -312,6 +330,35 @@ func (h *RoomHub) joinRoom(roomID string, isHost bool) (*RoomState, string, erro
 	userID := "user-" + randomCode(8)
 	room.Participants = append(room.Participants, h.createParticipant(room, userID, isHost))
 	return cloneRoom(room), userID, nil
+}
+
+func (h *RoomHub) listRooms() []RoomSummary {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	summaries := make([]RoomSummary, 0, len(h.rooms))
+	for _, room := range h.rooms {
+		createdAt := time.Now().UnixMilli()
+		if len(room.Participants) > 0 {
+			createdAt = room.Participants[0].JoinedAt
+		}
+		summaries = append(summaries, RoomSummary{
+			RoomID:           room.RoomID,
+			Category:         room.Category,
+			Status:           room.Status,
+			TopicTitle:       room.Topic.Title,
+			ParticipantCount: len(room.Participants),
+			OnlineCount:      onlineParticipantCount(room),
+			MaxParticipants:  room.MaxParticipants,
+			CanJoin:          room.Status == StatusWaiting && len(room.Participants) < room.MaxParticipants,
+			CreatedAt:        createdAt,
+		})
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].CreatedAt > summaries[j].CreatedAt
+	})
+	return summaries
 }
 
 func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) bool {
@@ -457,6 +504,15 @@ func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) 
 	case "end_speak":
 		if room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == userID {
 			endSpeaking(room, time.Now())
+		}
+	case "leave_room":
+		removeParticipant(room, userID)
+		if len(room.Participants) == 0 {
+			delete(h.rooms, roomID)
+			delete(h.clients, roomID)
+			delete(h.disconnectTimers, roomID)
+		} else {
+			ensureHost(room)
 		}
 	case "voice_signal":
 		var data VoiceSignalPayload
