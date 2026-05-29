@@ -17,6 +17,7 @@ const (
 	speakingDuration = 60 * time.Second
 	sideWaitDuration = 10 * time.Second
 	cooldownDuration = 30 * time.Second
+	disconnectGrace  = 15 * time.Second
 )
 
 type DebateSide string
@@ -102,9 +103,10 @@ type JoinRoomResponse struct {
 }
 
 type RoomHub struct {
-	mu      sync.Mutex
-	rooms   map[string]*RoomState
-	clients map[string]map[*websocket.Conn]ClientInfo
+	mu               sync.Mutex
+	rooms            map[string]*RoomState
+	clients          map[string]map[*websocket.Conn]ClientInfo
+	disconnectTimers map[string]map[string]*time.Timer
 }
 
 type ClientInfo struct {
@@ -118,8 +120,9 @@ type ServerConfig struct {
 }
 
 var hub = &RoomHub{
-	rooms:   map[string]*RoomState{},
-	clients: map[string]map[*websocket.Conn]ClientInfo{},
+	rooms:            map[string]*RoomState{},
+	clients:          map[string]map[*websocket.Conn]ClientInfo{},
+	disconnectTimers: map[string]map[string]*time.Timer{},
 }
 
 var serverConfig = loadConfig()
@@ -310,6 +313,7 @@ func (h *RoomHub) joinRoom(roomID string, isHost bool) (*RoomState, string, erro
 func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.cancelDisconnectTimerLocked(roomID, userID)
 	if h.clients[roomID] == nil {
 		h.clients[roomID] = map[*websocket.Conn]ClientInfo{}
 	}
@@ -336,29 +340,8 @@ func (h *RoomHub) removeClient(roomID string, conn *websocket.Conn) bool {
 		return false
 	}
 
-	room := h.rooms[roomID]
-	if room == nil {
-		return false
-	}
-
-	wasCurrentSpeaker := room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == info.UserID
-	changed := removeParticipant(room, info.UserID)
-	if !changed {
-		return false
-	}
-
-	if len(room.Participants) == 0 {
-		delete(h.rooms, roomID)
-		delete(h.clients, roomID)
-		return false
-	}
-
-	ensureHost(room)
-	if wasCurrentSpeaker {
-		room.CurrentSide = oppositeSide(room.CurrentSide)
-		tryStartNextSpeaker(room, time.Now())
-	}
-	return true
+	h.scheduleDisconnectRemovalLocked(roomID, info.UserID)
+	return false
 }
 
 func (h *RoomHub) userHasOtherConnectionsLocked(roomID, userID string) bool {
@@ -368,6 +351,67 @@ func (h *RoomHub) userHasOtherConnectionsLocked(roomID, userID string) bool {
 		}
 	}
 	return false
+}
+
+func (h *RoomHub) cancelDisconnectTimerLocked(roomID, userID string) {
+	roomTimers := h.disconnectTimers[roomID]
+	if roomTimers == nil {
+		return
+	}
+	if timer := roomTimers[userID]; timer != nil {
+		timer.Stop()
+		delete(roomTimers, userID)
+	}
+	if len(roomTimers) == 0 {
+		delete(h.disconnectTimers, roomID)
+	}
+}
+
+func (h *RoomHub) scheduleDisconnectRemovalLocked(roomID, userID string) {
+	h.cancelDisconnectTimerLocked(roomID, userID)
+	if h.disconnectTimers[roomID] == nil {
+		h.disconnectTimers[roomID] = map[string]*time.Timer{}
+	}
+	h.disconnectTimers[roomID][userID] = time.AfterFunc(disconnectGrace, func() {
+		if h.removeDisconnectedParticipant(roomID, userID) {
+			h.broadcast(roomID)
+		}
+	})
+}
+
+func (h *RoomHub) removeDisconnectedParticipant(roomID, userID string) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.cancelDisconnectTimerLocked(roomID, userID)
+	if h.userHasOtherConnectionsLocked(roomID, userID) {
+		return false
+	}
+
+	room := h.rooms[roomID]
+	if room == nil {
+		return false
+	}
+
+	wasCurrentSpeaker := room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == userID
+	changed := removeParticipant(room, userID)
+	if !changed {
+		return false
+	}
+
+	if len(room.Participants) == 0 {
+		delete(h.rooms, roomID)
+		delete(h.clients, roomID)
+		delete(h.disconnectTimers, roomID)
+		return false
+	}
+
+	ensureHost(room)
+	if wasCurrentSpeaker {
+		room.CurrentSide = oppositeSide(room.CurrentSide)
+		tryStartNextSpeaker(room, time.Now())
+	}
+	return true
 }
 
 func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) {

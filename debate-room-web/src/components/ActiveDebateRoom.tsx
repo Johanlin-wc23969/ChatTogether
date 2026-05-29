@@ -161,8 +161,10 @@ function speakLabel(
 function voiceStatusLabel(voiceStatus: VoiceStatus, isSpeaking: boolean, hasSpeaker: boolean) {
   if (!hasSpeaker) return "等待语音连接";
   if (voiceStatus === "connecting") return "正在连接麦克风";
+  if (voiceStatus === "connected") return "语音已连接";
   if (voiceStatus === "speaking" || isSpeaking) return "麦克风已开启";
   if (voiceStatus === "listening") return "正在收听发言";
   if (voiceStatus === "blocked") return "麦克风不可用";
+  if (voiceStatus === "failed") return "语音连接中断";
   return "语音待机";
 }

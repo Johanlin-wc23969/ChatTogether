@@ -23,6 +23,8 @@ export interface VoiceSignal {
   payload?: unknown;
 }
 
+export type ConnectionStatus = "idle" | "connecting" | "connected" | "reconnecting" | "disconnected";
+
 const pendingJoinRequests = new Map<string, Promise<CreateRoomResponse | null>>();
 
 export function useRemoteRoom() {
@@ -30,8 +32,13 @@ export function useRemoteRoom() {
   const [userId, setUserId] = useState<string | null>(null);
   const [draftCategory, setDraftCategory] = useState<TopicCategory>("technology");
   const [draftMaxParticipants, setDraftMaxParticipants] = useState(4);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("idle");
   const [now, setNow] = useState(() => Date.now());
   const socketRef = useRef<WebSocket | null>(null);
+  const sessionRef = useRef<{ roomId: string; userId: string } | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const manualCloseRef = useRef(false);
   const voiceSignalHandlerRef = useRef<((signal: VoiceSignal) => void) | null>(null);
 
   useEffect(() => {
@@ -39,11 +46,33 @@ export function useRemoteRoom() {
     return () => window.clearInterval(handle);
   }, []);
 
-  const connectSocket = useCallback((roomId: string, nextUserId: string) => {
-    socketRef.current?.close();
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current !== null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  const connectSocket = useCallback((roomId: string, nextUserId: string, isReconnect = false) => {
+    clearReconnectTimer();
+    const previousSocket = socketRef.current;
+    if (previousSocket) {
+      previousSocket.onclose = null;
+      previousSocket.close();
+    }
+
+    manualCloseRef.current = false;
+    sessionRef.current = { roomId, userId: nextUserId };
+    setConnectionStatus(isReconnect ? "reconnecting" : "connecting");
+
     const socket = new WebSocket(
       `${config.wsBaseUrl}/ws?roomId=${encodeURIComponent(roomId)}&userId=${encodeURIComponent(nextUserId)}`,
     );
+
+    socket.onopen = () => {
+      reconnectAttemptRef.current = 0;
+      setConnectionStatus("connected");
+    };
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data) as ServerMessage;
@@ -55,12 +84,47 @@ export function useRemoteRoom() {
       }
     };
 
+    socket.onclose = () => {
+      if (socketRef.current !== socket) return;
+      socketRef.current = null;
+      if (manualCloseRef.current) {
+        setConnectionStatus("idle");
+        return;
+      }
+
+      setConnectionStatus("disconnected");
+      const nextAttempt = reconnectAttemptRef.current + 1;
+      reconnectAttemptRef.current = nextAttempt;
+      const delay = Math.min(1000 * 2 ** (nextAttempt - 1), 8000);
+      reconnectTimerRef.current = window.setTimeout(() => {
+        const session = sessionRef.current;
+        if (session) {
+          connectSocket(session.roomId, session.userId, true);
+        }
+      }, delay);
+    };
+
+    socket.onerror = () => {
+      setConnectionStatus("disconnected");
+    };
+
     socketRef.current = socket;
-  }, []);
+  }, [clearReconnectTimer]);
+
+  useEffect(() => {
+    return () => {
+      manualCloseRef.current = true;
+      clearReconnectTimer();
+      socketRef.current?.close();
+    };
+  }, [clearReconnectTimer]);
 
   const createNewRoom = useCallback(async () => {
     socketRef.current?.close();
     socketRef.current = null;
+    sessionRef.current = null;
+    reconnectAttemptRef.current = 0;
+    clearReconnectTimer();
     setRoom(null);
     setUserId(null);
     const response = await fetch(`${config.apiBaseUrl}/api/rooms`, {
@@ -76,7 +140,7 @@ export function useRemoteRoom() {
     setRoom(normalizeRoom(payload.room, payload.userId));
     window.history.replaceState({}, "", `${window.location.pathname}?room=${payload.room.roomId}`);
     connectSocket(payload.room.roomId, payload.userId);
-  }, [connectSocket, draftCategory, draftMaxParticipants]);
+  }, [clearReconnectTimer, connectSocket, draftCategory, draftMaxParticipants]);
 
   const joinRoom = useCallback(async (roomId: string) => {
     const payload = await requestJoinRoom(roomId);
@@ -121,13 +185,19 @@ export function useRemoteRoom() {
       now,
       draftCategory,
       draftMaxParticipants,
+      connectionStatus,
       userId,
       setCategory: setDraftCategory,
       setMaxParticipants: setDraftMaxParticipants,
       createNewRoom,
       closeRoom: () => {
+        manualCloseRef.current = true;
+        clearReconnectTimer();
+        sessionRef.current = null;
+        reconnectAttemptRef.current = 0;
         socketRef.current?.close();
         socketRef.current = null;
+        setConnectionStatus("idle");
         setRoom(null);
         setUserId(null);
         window.history.replaceState({}, "", window.location.pathname);
@@ -139,7 +209,19 @@ export function useRemoteRoom() {
       sendVoiceSignal,
       setVoiceSignalHandler,
     }),
-    [createNewRoom, draftCategory, draftMaxParticipants, now, room, send, sendVoiceSignal, setVoiceSignalHandler, userId],
+    [
+      clearReconnectTimer,
+      connectionStatus,
+      createNewRoom,
+      draftCategory,
+      draftMaxParticipants,
+      now,
+      room,
+      send,
+      sendVoiceSignal,
+      setVoiceSignalHandler,
+      userId,
+    ],
   );
 }
 

@@ -12,6 +12,45 @@
   margin-bottom: 18px;
 }
 
+.topbar-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.connection-badge,
+.room-code {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.connection-badge {
+  min-width: 86px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.connection-connected {
+  color: var(--green);
+}
+
+.connection-connecting,
+.connection-reconnecting {
+  color: var(--amber);
+}
+
+.connection-disconnected {
+  color: var(--rose);
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--green);
@@ -538,7 +577,8 @@ select {
 }
 
 .voice-speaking,
-.voice-listening {
+.voice-listening,
+.voice-connected {
   color: var(--green);
 }
 
@@ -546,7 +586,8 @@ select {
   color: var(--amber);
 }
 
-.voice-blocked {
+.voice-blocked,
+.voice-failed {
   color: var(--rose);
 }
 

@@ -3,6 +3,7 @@ import { ActiveDebateRoom } from "../components/ActiveDebateRoom";
 import { CreateRoomPanel } from "../components/CreateRoomPanel";
 import { Toast } from "../components/Toast";
 import { WaitingRoom } from "../components/WaitingRoom";
+import type { ConnectionStatus } from "./useRemoteRoom";
 import { useRemoteRoom } from "./useRemoteRoom";
 import { useRoomVoice } from "./useRoomVoice";
 import "./app.css";
@@ -42,7 +43,10 @@ export function App() {
           <p className="eyebrow">Web MVP</p>
           <h1>匿名辩论房</h1>
         </div>
-        <div className="room-code">{roomApi.room?.roomId ?? "未创建"}</div>
+        <div className="topbar-meta">
+          {roomApi.room ? <ConnectionBadge status={roomApi.connectionStatus} /> : null}
+          <div className="room-code">{roomApi.room?.roomId ?? "未创建"}</div>
+        </div>
       </section>
 
       {!roomApi.room ? (
@@ -86,6 +90,18 @@ export function App() {
       <Toast message={toast} />
     </main>
   );
+}
+
+function ConnectionBadge({ status }: { status: ConnectionStatus }) {
+  return <div className={`connection-badge connection-${status}`}>{connectionLabel(status)}</div>;
+}
+
+function connectionLabel(status: ConnectionStatus) {
+  if (status === "connecting") return "连接中";
+  if (status === "connected") return "已连接";
+  if (status === "reconnecting") return "正在重连";
+  if (status === "disconnected") return "连接中断";
+  return "未连接";
 }
 
 async function copyText(text: string) {

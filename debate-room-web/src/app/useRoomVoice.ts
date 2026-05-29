@@ -5,7 +5,7 @@ import type { VoiceSignal } from "./useRemoteRoom";
 type SendVoiceSignal = (target: string, signalType: VoiceSignal["signalType"], payload?: unknown) => void;
 type SetVoiceSignalHandler = (handler: ((signal: VoiceSignal) => void) | null) => void;
 
-export type VoiceStatus = "idle" | "listening" | "connecting" | "speaking" | "blocked";
+export type VoiceStatus = "idle" | "listening" | "connecting" | "connected" | "speaking" | "blocked" | "failed";
 
 const rtcConfig: RTCConfiguration = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
@@ -60,6 +60,17 @@ export function useRoomVoice(
       peer.onicecandidate = (event) => {
         if (event.candidate) {
           sendVoiceSignal(remoteUserId, "ice", event.candidate.toJSON());
+        }
+      };
+
+      peer.onconnectionstatechange = () => {
+        if (peer.connectionState === "connected") {
+          setVoiceError("");
+          setVoiceStatus(localSpeakerActiveRef.current ? "speaking" : "connected");
+        }
+        if (peer.connectionState === "failed" || peer.connectionState === "disconnected") {
+          setVoiceStatus("failed");
+          setVoiceError("语音连接中断，等待下一位发言或重新申请发言");
         }
       };
 
@@ -153,6 +164,7 @@ export function useRoomVoice(
       if (signal.signalType === "offer") {
         if (currentRoom.currentSpeakerId !== signal.from) return;
 
+        setVoiceStatus("connecting");
         const peer = createPeer(signal.from);
         await peer.setRemoteDescription(signal.payload as RTCSessionDescriptionInit);
         const answer = await peer.createAnswer();
