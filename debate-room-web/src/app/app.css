@@ -980,4 +980,34 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .side-members-board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .side-members {
+    min-height: 112px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .side-member-main {
+    min-height: 46px;
+  }
+
+  .side-member-idle {
+    min-height: 30px;
+    gap: 6px;
+    padding-top: 5px;
+  }
+
+  .side-member-avatar {
+    width: 42px;
+  }
+
+  .idle-avatar {
+    width: 32px;
+  }
+
 }
