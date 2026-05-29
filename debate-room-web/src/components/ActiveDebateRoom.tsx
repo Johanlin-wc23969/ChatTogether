@@ -63,8 +63,8 @@ export function ActiveDebateRoom({
       </section>
 
       <section className="side-members-board" aria-label="双方阵营">
-        <SideMembers title="正方" side="pro" room={room} />
-        <SideMembers title="反方" side="con" room={room} />
+        <SideMembers title="正方" side="pro" room={room} userId={userId} />
+        <SideMembers title="反方" side="con" room={room} userId={userId} />
       </section>
 
       <footer className="active-actions">
@@ -88,9 +88,10 @@ interface SideMembersProps {
   title: string;
   side: DebateSide;
   room: RoomState;
+  userId: string | null;
 }
 
-function SideMembers({ title, side, room }: SideMembersProps) {
+function SideMembers({ title, side, room, userId }: SideMembersProps) {
   const queue = side === "pro" ? room.proQueue : room.conQueue;
   const { priorityMembers, idleMembers } = splitSideMembers(room, side, queue);
 
@@ -102,7 +103,7 @@ function SideMembers({ title, side, room }: SideMembersProps) {
       <div className="side-member-main">
         {priorityMembers.map((participant) => (
           <PersonaAvatar
-            className={`side-member-avatar ${avatarStateClass(room, queue, participant.id)}`}
+            className={`side-member-avatar ${avatarStateClass(room, queue, participant.id, userId)}`}
             key={participant.id}
             persona={participant.persona}
             size="small"
@@ -112,7 +113,7 @@ function SideMembers({ title, side, room }: SideMembersProps) {
       <div className="side-member-idle">
         {idleMembers.map((participant) => (
           <PersonaAvatar
-            className="side-member-avatar idle-avatar"
+            className={`side-member-avatar idle-avatar ${participant.id === userId ? "is-local-avatar" : ""}`}
             key={participant.id}
             persona={participant.persona}
             size="small"
@@ -138,10 +139,12 @@ function splitSideMembers(room: RoomState, side: DebateSide, queue: string[]) {
   };
 }
 
-function avatarStateClass(room: RoomState, queue: string[], participantId: string) {
-  if (room.currentSpeakerId === participantId) return "is-speaking";
-  if (queue.includes(participantId)) return "is-priority";
-  return "";
+function avatarStateClass(room: RoomState, queue: string[], participantId: string, userId: string | null) {
+  const classes = [];
+  if (room.currentSpeakerId === participantId) classes.push("is-speaking");
+  if (queue.includes(participantId)) classes.push("is-priority");
+  if (participantId === userId) classes.push("is-local-avatar");
+  return classes.join(" ");
 }
 
 function speakLabel(

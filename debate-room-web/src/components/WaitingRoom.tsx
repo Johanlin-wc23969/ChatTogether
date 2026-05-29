@@ -43,7 +43,11 @@ export function WaitingRoom({
       <section className="waiting-avatars" aria-label="房间玩家">
         {room.participants.map((participant) => (
           <article className="waiting-avatar-card" key={participant.id}>
-            <PersonaAvatar persona={participant.persona} size="large" />
+            <PersonaAvatar
+              className={participant.id === userId ? "is-local-avatar" : ""}
+              persona={participant.persona}
+              size="large"
+            />
           </article>
         ))}
       </section>
