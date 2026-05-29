@@ -11,6 +11,7 @@ interface ActiveDebateRoomProps {
   onEndLocalSpeaking: () => void;
   voiceStatus: VoiceStatus;
   voiceError: string;
+  voiceEffectLabel: string;
 }
 
 export function ActiveDebateRoom({
@@ -21,6 +22,7 @@ export function ActiveDebateRoom({
   onEndLocalSpeaking,
   voiceStatus,
   voiceError,
+  voiceEffectLabel,
 }: ActiveDebateRoomProps) {
   const speaker = room.participants.find((participant) => participant.id === room.currentSpeakerId);
   const currentParticipant = room.participants.find((participant) => participant.id === userId);
@@ -69,7 +71,7 @@ export function ActiveDebateRoom({
 
       <footer className="active-actions">
         <div className={`voice-state voice-${voiceStatus}`} aria-live="polite">
-          {voiceError || voiceStatusLabel(voiceStatus, isSpeaking, Boolean(speaker))}
+          {voiceError || voiceStatusLabel(voiceStatus, isSpeaking, Boolean(speaker), voiceEffectLabel)}
         </div>
         <button type="button" onClick={onRequestLocalSpeak} disabled={speakDisabled}>
           <Mic size={20} />
@@ -161,11 +163,16 @@ function speakLabel(
   return "申请发言";
 }
 
-function voiceStatusLabel(voiceStatus: VoiceStatus, isSpeaking: boolean, hasSpeaker: boolean) {
+function voiceStatusLabel(
+  voiceStatus: VoiceStatus,
+  isSpeaking: boolean,
+  hasSpeaker: boolean,
+  voiceEffectLabel: string,
+) {
   if (!hasSpeaker) return "等待语音连接";
   if (voiceStatus === "connecting") return "正在连接麦克风";
   if (voiceStatus === "connected") return "语音已连接";
-  if (voiceStatus === "speaking" || isSpeaking) return "麦克风已开启";
+  if (voiceStatus === "speaking" || isSpeaking) return voiceEffectLabel ? `麦克风已开启 · ${voiceEffectLabel}` : "麦克风已开启";
   if (voiceStatus === "listening") return "正在收听发言";
   if (voiceStatus === "blocked") return "麦克风不可用";
   if (voiceStatus === "failed") return "语音连接中断";

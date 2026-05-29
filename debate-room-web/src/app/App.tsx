@@ -84,6 +84,7 @@ export function App() {
           onEndLocalSpeaking={roomApi.endLocalSpeaking}
           voiceStatus={voice.voiceStatus}
           voiceError={voice.voiceError}
+          voiceEffectLabel={voice.voiceEffectLabel}
         />
       )}
 
