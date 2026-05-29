@@ -280,18 +280,22 @@ function buildVoiceChain(
   outputGain.connect(destination);
 
   if (personaId === "bear") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 0.72, cleanupCallbacks);
     const low = context.createBiquadFilter();
     low.type = "lowshelf";
     low.frequency.value = 220;
-    low.gain.value = 7;
+    low.gain.value = 9;
     const warm = context.createBiquadFilter();
     warm.type = "lowpass";
-    warm.frequency.value = 3100;
-    inputGain.connect(low).connect(warm).connect(outputGain);
-    return { label: "低沉厚重变声" };
+    warm.frequency.value = 2600;
+    pitched.connect(low).connect(warm).connect(outputGain);
+    return { label: "低沉降调变声" };
   }
 
   if (personaId === "dog") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 1.12, cleanupCallbacks);
     const bright = context.createBiquadFilter();
     bright.type = "highshelf";
     bright.frequency.value = 1800;
@@ -301,42 +305,48 @@ function buildVoiceChain(
     punch.frequency.value = 900;
     punch.Q.value = 1.1;
     punch.gain.value = 3;
-    inputGain.connect(punch).connect(bright).connect(outputGain);
+    pitched.connect(punch).connect(bright).connect(outputGain);
     return { label: "活泼明亮变声" };
   }
 
   if (personaId === "cat") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 1.38, cleanupCallbacks);
     const light = context.createBiquadFilter();
     light.type = "highpass";
-    light.frequency.value = 260;
+    light.frequency.value = 320;
     const soft = context.createBiquadFilter();
     soft.type = "peaking";
-    soft.frequency.value = 2300;
+    soft.frequency.value = 2600;
     soft.Q.value = 1.4;
-    soft.gain.value = 5;
-    inputGain.connect(light).connect(soft).connect(outputGain);
-    return { label: "轻柔尖细变声" };
+    soft.gain.value = 6;
+    pitched.connect(light).connect(soft).connect(outputGain);
+    return { label: "尖细升调变声" };
   }
 
   if (personaId === "bird") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 1.55, cleanupCallbacks);
     const airy = context.createBiquadFilter();
     airy.type = "highpass";
-    airy.frequency.value = 420;
+    airy.frequency.value = 520;
     const shine = context.createBiquadFilter();
     shine.type = "highshelf";
     shine.frequency.value = 2600;
     shine.gain.value = 8;
-    inputGain.connect(airy).connect(shine).connect(outputGain);
-    return { label: "清亮快速变声" };
+    pitched.connect(airy).connect(shine).connect(outputGain);
+    return { label: "高频升调变声" };
   }
 
   if (personaId === "robot") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 0.9, cleanupCallbacks);
     const gain = context.createGain();
-    gain.gain.value = 0.8;
+    gain.gain.value = 0.72;
     const oscillator = context.createOscillator();
     const modulation = context.createGain();
-    oscillator.frequency.value = 42;
-    modulation.gain.value = 0.28;
+    oscillator.frequency.value = 55;
+    modulation.gain.value = 0.38;
     oscillator.connect(modulation).connect(gain.gain);
     oscillator.start();
     cleanupCallbacks.push(() => oscillator.stop());
@@ -345,11 +355,13 @@ function buildVoiceChain(
     tone.type = "bandpass";
     tone.frequency.value = 1050;
     tone.Q.value = 1.8;
-    inputGain.connect(tone).connect(gain).connect(outputGain);
-    return { label: "电子质感变声" };
+    pitched.connect(tone).connect(gain).connect(outputGain);
+    return { label: "机械降调变声" };
   }
 
   if (personaId === "alien") {
+    const pitched = context.createGain();
+    connectPitchShift(context, inputGain, pitched, 1.22, cleanupCallbacks);
     const delay = context.createDelay(0.08);
     delay.delayTime.value = 0.035;
     const feedback = context.createGain();
@@ -364,13 +376,71 @@ function buildVoiceChain(
     shimmer.Q.value = 1.2;
     shimmer.gain.value = 4;
     delay.connect(feedback).connect(delay);
-    inputGain.connect(dry).connect(outputGain);
-    inputGain.connect(shimmer).connect(delay).connect(wet).connect(outputGain);
-    return { label: "空间变调变声" };
+    pitched.connect(dry).connect(outputGain);
+    pitched.connect(shimmer).connect(delay).connect(wet).connect(outputGain);
+    return { label: "空间升调变声" };
   }
 
   inputGain.connect(outputGain);
   return { label: personaId ? "匿名变声" : "原声" };
+}
+
+function connectPitchShift(
+  context: AudioContext,
+  input: AudioNode,
+  output: AudioNode,
+  pitchRatio: number,
+  cleanupCallbacks: Array<() => void>,
+) {
+  if (Math.abs(pitchRatio - 1) < 0.04) {
+    input.connect(output);
+    return;
+  }
+
+  const delayRange = 0.055;
+  const slope = Math.abs((1 / pitchRatio) - 1);
+  const period = Math.max(0.09, Math.min(0.26, delayRange / Math.max(slope, 0.18)));
+  const delayA = context.createDelay(delayRange + 0.02);
+  const delayB = context.createDelay(delayRange + 0.02);
+  const gainA = context.createGain();
+  const gainB = context.createGain();
+  const makeup = context.createGain();
+  makeup.gain.value = 0.95;
+
+  input.connect(delayA).connect(gainA).connect(makeup).connect(output);
+  input.connect(delayB).connect(gainB).connect(makeup);
+
+  const scheduleWindow = (delay: DelayNode, gain: GainNode, startTime: number) => {
+    const startDelay = pitchRatio > 1 ? delayRange : 0.002;
+    const endDelay = pitchRatio > 1 ? 0.002 : delayRange;
+    const attackEnd = startTime + period * 0.2;
+    const releaseStart = startTime + period * 0.78;
+    const endTime = startTime + period;
+
+    delay.delayTime.cancelScheduledValues(startTime);
+    delay.delayTime.setValueAtTime(startDelay, startTime);
+    delay.delayTime.linearRampToValueAtTime(endDelay, endTime);
+
+    gain.gain.cancelScheduledValues(startTime);
+    gain.gain.setValueAtTime(0, startTime);
+    gain.gain.linearRampToValueAtTime(1, attackEnd);
+    gain.gain.setValueAtTime(1, releaseStart);
+    gain.gain.linearRampToValueAtTime(0, endTime);
+  };
+
+  let nextStart = context.currentTime + 0.02;
+  const scheduleAhead = () => {
+    const horizon = context.currentTime + period * 4;
+    while (nextStart < horizon) {
+      scheduleWindow(delayA, gainA, nextStart);
+      scheduleWindow(delayB, gainB, nextStart + period / 2);
+      nextStart += period;
+    }
+  };
+
+  scheduleAhead();
+  const interval = window.setInterval(scheduleAhead, Math.max(30, period * 350));
+  cleanupCallbacks.push(() => window.clearInterval(interval));
 }
 
 declare global {
