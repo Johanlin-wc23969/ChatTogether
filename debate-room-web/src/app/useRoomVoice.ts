@@ -16,15 +16,18 @@ export function useRoomVoice(
   userId: string | null,
   sendVoiceSignal: SendVoiceSignal,
   setVoiceSignalHandler: SetVoiceSignalHandler,
+  enabled = true,
 ) {
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>("idle");
   const [voiceError, setVoiceError] = useState("");
   const [voiceEffectLabel, setVoiceEffectLabel] = useState("");
+  const [voiceLevel, setVoiceLevel] = useState(0);
   const roomRef = useRef<RoomState | null>(room);
   const userIdRef = useRef<string | null>(userId);
   const localStreamRef = useRef<MediaStream | null>(null);
   const processedStreamRef = useRef<MediaStream | null>(null);
   const voiceEffectCleanupRef = useRef<(() => void) | null>(null);
+  const volumeMeterCleanupRef = useRef<(() => void) | null>(null);
   const peersRef = useRef(new Map<string, RTCPeerConnection>());
   const audioRef = useRef(new Map<string, HTMLAudioElement>());
   const localSpeakerActiveRef = useRef(false);
@@ -50,6 +53,8 @@ export function useRoomVoice(
   }, []);
 
   const stopLocalStream = useCallback(() => {
+    volumeMeterCleanupRef.current?.();
+    volumeMeterCleanupRef.current = null;
     processedStreamRef.current?.getTracks().forEach((track) => track.stop());
     processedStreamRef.current = null;
     voiceEffectCleanupRef.current?.();
@@ -57,6 +62,7 @@ export function useRoomVoice(
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
     localStreamRef.current = null;
     setVoiceEffectLabel("");
+    setVoiceLevel(0);
   }, []);
 
   const createPeer = useCallback(
@@ -95,6 +101,8 @@ export function useRoomVoice(
           document.body.appendChild(audio);
         }
         audio.srcObject = stream;
+        volumeMeterCleanupRef.current?.();
+        volumeMeterCleanupRef.current = createVolumeMeter(stream, setVoiceLevel);
         void audio.play().catch(() => {
           setVoiceError("浏览器拦截了自动播放，请点击页面后继续收听");
         });
@@ -142,6 +150,8 @@ export function useRoomVoice(
       const voiceEffect = createVoiceEffectStream(stream, currentParticipant?.persona);
       processedStreamRef.current = voiceEffect.stream;
       voiceEffectCleanupRef.current = voiceEffect.cleanup;
+      volumeMeterCleanupRef.current?.();
+      volumeMeterCleanupRef.current = createVolumeMeter(stream, setVoiceLevel);
       setVoiceEffectLabel(voiceEffect.label);
 
       const listeners = currentRoom.participants.filter((participant) => participant.id !== currentUserId);
@@ -164,6 +174,10 @@ export function useRoomVoice(
   }, [createPeer, sendVoiceSignal, stopLocalSpeaker]);
 
   useEffect(() => {
+    if (!enabled) {
+      setVoiceSignalHandler(null);
+      return;
+    }
     setVoiceSignalHandler(async (signal) => {
       const currentRoom = roomRef.current;
       const currentUserId = userIdRef.current;
@@ -200,9 +214,14 @@ export function useRoomVoice(
     });
 
     return () => setVoiceSignalHandler(null);
-  }, [createPeer, removePeer, sendVoiceSignal, setVoiceSignalHandler]);
+  }, [createPeer, enabled, removePeer, sendVoiceSignal, setVoiceSignalHandler]);
 
   useEffect(() => {
+    if (!enabled) {
+      stopLocalSpeaker();
+      setVoiceStatus("idle");
+      return;
+    }
     if (!hasRoom || !userId || !currentSpeakerId) {
       stopLocalSpeaker();
       setVoiceStatus("idle");
@@ -219,7 +238,7 @@ export function useRoomVoice(
       .filter((remoteUserId) => remoteUserId !== currentSpeakerId)
       .forEach(removePeer);
     setVoiceStatus("listening");
-  }, [currentSpeakerId, hasRoom, removePeer, startLocalSpeaker, stopLocalSpeaker, userId]);
+  }, [currentSpeakerId, enabled, hasRoom, removePeer, startLocalSpeaker, stopLocalSpeaker, userId]);
 
   useEffect(() => {
     return () => {
@@ -228,7 +247,7 @@ export function useRoomVoice(
     };
   }, [setVoiceSignalHandler, stopLocalSpeaker]);
 
-  return { voiceStatus, voiceError, voiceEffectLabel };
+  return { voiceStatus, voiceError, voiceEffectLabel, voiceLevel };
 }
 
 interface VoiceEffectResult {
@@ -261,6 +280,49 @@ function createVoiceEffectStream(inputStream: MediaStream, persona?: Persona): V
         // Audio nodes can already be stopped when browsers tear down media tracks.
       }
     }),
+  };
+}
+
+function createVolumeMeter(stream: MediaStream, onLevel: (level: number) => void) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return () => undefined;
+  }
+
+  const context = new AudioContextClass();
+  void context.resume();
+  const source = context.createMediaStreamSource(stream);
+  const analyser = context.createAnalyser();
+  analyser.fftSize = 512;
+  analyser.smoothingTimeConstant = 0.72;
+  source.connect(analyser);
+
+  const samples = new Uint8Array(analyser.fftSize);
+  let frame = 0;
+  let active = true;
+
+  const tick = () => {
+    if (!active) return;
+    analyser.getByteTimeDomainData(samples);
+    let sum = 0;
+    for (const sample of samples) {
+      const centered = (sample - 128) / 128;
+      sum += centered * centered;
+    }
+    const rms = Math.sqrt(sum / samples.length);
+    const level = Math.min(1, Math.max(0, (rms - 0.015) * 7.2));
+    onLevel(level);
+    frame = window.requestAnimationFrame(tick);
+  };
+
+  tick();
+  return () => {
+    active = false;
+    window.cancelAnimationFrame(frame);
+    onLevel(0);
+    source.disconnect();
+    analyser.disconnect();
+    void context.close();
   };
 }
 

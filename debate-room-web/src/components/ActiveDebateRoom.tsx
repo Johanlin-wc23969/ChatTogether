@@ -1,4 +1,5 @@
 import { Mic, Square } from "lucide-react";
+import type { CSSProperties } from "react";
 import type { VoiceStatus } from "../app/useRoomVoice";
 import type { DebateSide, Participant, RoomState } from "../domain/types";
 import { PersonaAvatar } from "./PersonaAvatar";
@@ -12,6 +13,7 @@ interface ActiveDebateRoomProps {
   voiceStatus: VoiceStatus;
   voiceError: string;
   voiceEffectLabel: string;
+  voiceLevel: number;
 }
 
 export function ActiveDebateRoom({
@@ -23,6 +25,7 @@ export function ActiveDebateRoom({
   voiceStatus,
   voiceError,
   voiceEffectLabel,
+  voiceLevel,
 }: ActiveDebateRoomProps) {
   const speaker = room.participants.find((participant) => participant.id === room.currentSpeakerId);
   const currentParticipant = room.participants.find((participant) => participant.id === userId);
@@ -34,6 +37,7 @@ export function ActiveDebateRoom({
   const isQueued = Boolean(userId && (room.proQueue.includes(userId) || room.conQueue.includes(userId)));
   const cooldownLeft = Math.max(0, Math.ceil((room.cooldownUntil - now) / 1000));
   const speakDisabled = isSpeaking || isQueued || cooldownLeft > 0;
+  const visibleVoiceLevel = room.currentSpeakerId ? voiceLevel : 0;
 
   return (
     <section className="active-room">
@@ -42,12 +46,22 @@ export function ActiveDebateRoom({
       </header>
 
       <section className="current-speaker" aria-label="当前发言人">
-        <div className="speaker-identity">
+        <div
+          className="speaker-identity"
+          style={{ "--voice-level": visibleVoiceLevel.toFixed(3) } as CSSProperties}
+        >
           <PersonaAvatar
             persona={speaker?.persona}
             size="hero"
-            className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"}`}
+            className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"} ${visibleVoiceLevel > 0.08 ? "is-voice-active" : ""}`}
           />
+          <div className="voice-meter" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
           <span>
             {speaker
               ? speaker.side === "pro"

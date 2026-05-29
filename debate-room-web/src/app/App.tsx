@@ -85,6 +85,7 @@ export function App() {
           voiceStatus={voice.voiceStatus}
           voiceError={voice.voiceError}
           voiceEffectLabel={voice.voiceEffectLabel}
+          voiceLevel={voice.voiceLevel}
         />
       )}
 

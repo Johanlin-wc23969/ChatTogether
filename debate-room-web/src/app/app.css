@@ -416,6 +416,7 @@ select {
   display: grid;
   justify-items: center;
   gap: 12px;
+  --voice-level: 0;
 }
 
 .speaker-identity span {
@@ -427,6 +428,16 @@ select {
 .speaker-avatar {
   width: min(210px, 36vw);
   box-shadow: 0 18px 50px rgba(29, 41, 57, 0.16);
+  transform: scale(calc(1 + var(--voice-level) * 0.045));
+  transition:
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.speaker-avatar.is-voice-active {
+  box-shadow:
+    0 0 0 calc(4px + var(--voice-level) * 10px) rgba(34, 197, 94, 0.12),
+    0 18px 52px rgba(29, 41, 57, 0.18);
 }
 
 .speaker-avatar.con-avatar {
@@ -456,6 +467,49 @@ select {
   color: var(--amber);
   font-size: 18px;
   font-weight: 900;
+}
+
+.voice-meter {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 5px;
+  width: 92px;
+  height: 24px;
+}
+
+.voice-meter span {
+  display: block;
+  width: 8px;
+  min-height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2eff9a, #1f7a5f);
+  opacity: calc(0.26 + var(--voice-level) * 0.74);
+  transform-origin: bottom center;
+  transform: scaleY(calc(0.28 + var(--voice-level) * var(--bar-gain)));
+  transition:
+    opacity 90ms ease,
+    transform 90ms ease;
+}
+
+.voice-meter span:nth-child(1) {
+  --bar-gain: 1.6;
+}
+
+.voice-meter span:nth-child(2) {
+  --bar-gain: 2.3;
+}
+
+.voice-meter span:nth-child(3) {
+  --bar-gain: 3;
+}
+
+.voice-meter span:nth-child(4) {
+  --bar-gain: 2.1;
+}
+
+.voice-meter span:nth-child(5) {
+  --bar-gain: 1.45;
 }
 
 .side-members-board {
