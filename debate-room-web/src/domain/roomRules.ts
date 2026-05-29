@@ -29,7 +29,9 @@ export function createRoom(category: TopicCategory = "technology", maxParticipan
 
 export function createParticipant(room: RoomState, id: string, isHost = false): Participant {
   const usedPersonaIds = new Set(room.participants.map((participant) => participant.persona.id));
-  const persona = personas.find((item) => !usedPersonaIds.has(item.id)) ?? personas[0];
+  const availablePersonas = personas.filter((item) => !usedPersonaIds.has(item.id));
+  const personaPool = availablePersonas.length > 0 ? availablePersonas : personas;
+  const persona = personaPool[Math.floor(Math.random() * personaPool.length)];
 
   return {
     id,

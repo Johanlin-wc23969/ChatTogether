@@ -669,12 +669,16 @@ func pickPersona(room *RoomState) Persona {
 	for _, participant := range room.Participants {
 		used[participant.Persona.ID] = true
 	}
+	available := []Persona{}
 	for _, persona := range personas {
 		if !used[persona.ID] {
-			return persona
+			available = append(available, persona)
 		}
 	}
-	return personas[0]
+	if len(available) > 0 {
+		return available[rand.Intn(len(available))]
+	}
+	return personas[rand.Intn(len(personas))]
 }
 
 func pickTopic(category TopicCategory) DebateTopic {
