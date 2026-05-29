@@ -101,9 +101,8 @@ h1 {
 }
 
 .lobby-screen {
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
-  align-items: stretch;
-  gap: 18px;
+  grid-template-columns: 1fr;
+  align-items: start;
   place-items: stretch;
 }
 
@@ -116,7 +115,14 @@ h1 {
   min-width: 0;
 }
 
-.lobby-heading button {
+.lobby-heading-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lobby-heading-actions button,
+.create-modal .panel-heading button {
   width: 40px;
   height: 40px;
   display: inline-flex;
@@ -125,6 +131,14 @@ h1 {
   border-radius: 8px;
   background: #eef2ef;
   color: var(--ink);
+}
+
+.lobby-heading-actions .create-room-trigger {
+  width: auto;
+  padding: 0 13px;
+  background: var(--ink);
+  color: white;
+  font-weight: 900;
 }
 
 .room-list {
@@ -154,8 +168,7 @@ h1 {
 
 .room-list-item span,
 .room-list-meta span,
-.empty-lobby,
-.lobby-loading {
+.empty-lobby {
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
@@ -199,10 +212,6 @@ h1 {
   background: rgba(255, 255, 255, 0.68);
 }
 
-.lobby-loading {
-  margin: 10px 0 0;
-}
-
 .panel-heading {
   display: flex;
   align-items: start;
@@ -220,6 +229,25 @@ h1 {
   margin: 3px 0 0;
   color: var(--muted);
   font-size: 13px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(28, 36, 48, 0.34);
+  backdrop-filter: blur(8px);
+}
+
+.create-modal {
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: var(--shadow);
 }
 
 .field {
@@ -1196,6 +1224,14 @@ select {
   .lobby-screen {
     gap: 12px;
     padding: 14px;
+  }
+
+  .lobby-heading {
+    align-items: center;
+  }
+
+  .lobby-heading-actions .create-room-trigger {
+    padding: 0 10px;
   }
 
   .room-list {

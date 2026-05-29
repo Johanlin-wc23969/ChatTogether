@@ -52,7 +52,7 @@ export function App() {
             </div>
           ) : null}
           {roomApi.room ? <ConnectionBadge status={roomApi.connectionStatus} /> : null}
-          <div className="room-code">{roomApi.room?.roomId ?? "未创建"}</div>
+          {roomApi.room ? <div className="room-code">{roomApi.room.roomId}</div> : null}
         </div>
       </section>
 
@@ -63,7 +63,6 @@ export function App() {
           onCategoryChange={roomApi.setCategory}
           onMaxParticipantsChange={roomApi.setMaxParticipants}
           lobbyRooms={roomApi.lobbyRooms}
-          isLobbyLoading={roomApi.isLobbyLoading}
           onJoinRoom={(roomId) => {
             roomApi.joinRoom(roomId);
             showToast("正在加入房间");
