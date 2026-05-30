@@ -1,6 +1,6 @@
 <div align="center">
 
-<h1>🔥🎭 Anonymous Debate Room · 匿名辩论室 💬⚡</h1>
+<h1>🔥🎭 Chat Together · 匿名辩论室 💬⚡</h1>
 
 ### 戴上最萌的面具，开最猛的火。来一场不看脸的灵魂对决。
 
@@ -29,7 +29,7 @@
 
 ## 🧨 What Is This?
 
-**Anonymous Debate Room** 是一个卡通、生动、游戏化的匿名语音辩论房。
+**Chat Together** 是一个卡通、生动、游戏化的匿名语音辩论房。
 
 它不是冷冰冰的会议软件。它更像一间混合了 **Among Us 的匿名身份感**、**鹅鸭杀的社交混乱感**、以及 **Duolingo 式可爱压力感** 的线上辩论竞技场。
 
@@ -205,8 +205,7 @@ anonymous-debate-room/
 
 ```bash
 # 🚀 1. Clone the neon debate arena
-git clone https://github.com/your-name/anonymous-debate-room.git
-cd anonymous-debate-room
+git clone https://github.com/Johanlin-wc23969/ChatTogether.git
 
 # 🛠️ 2. Start the Go realtime server
 cd debate-room-server
