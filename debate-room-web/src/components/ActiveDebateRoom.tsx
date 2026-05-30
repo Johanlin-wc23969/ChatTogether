@@ -1,4 +1,4 @@
-import { Mic, Square } from "lucide-react";
+import { LogOut, Mic, Square } from "lucide-react";
 import type { CSSProperties } from "react";
 import type { VoiceStatus } from "../app/useRoomVoice";
 import type { DebateSide, Participant, RoomState } from "../domain/types";
@@ -10,6 +10,7 @@ interface ActiveDebateRoomProps {
   userId: string | null;
   onRequestLocalSpeak: () => void;
   onEndLocalSpeaking: () => void;
+  onCloseRoom: () => void;
   voiceStatus: VoiceStatus;
   voiceError: string;
   voiceEffectLabel: string;
@@ -22,6 +23,7 @@ export function ActiveDebateRoom({
   userId,
   onRequestLocalSpeak,
   onEndLocalSpeaking,
+  onCloseRoom,
   voiceStatus,
   voiceError,
   voiceEffectLabel,
@@ -38,48 +40,60 @@ export function ActiveDebateRoom({
   const cooldownLeft = Math.max(0, Math.ceil((room.cooldownUntil - now) / 1000));
   const speakDisabled = isSpeaking || isQueued || cooldownLeft > 0;
   const visibleVoiceLevel = room.currentSpeakerId ? voiceLevel : 0;
+  const isHost = Boolean(currentParticipant?.isHost);
 
   return (
     <section className="active-room">
       <header className="active-topic">
+        <span>当前辩题</span>
         <h2>{room.topic.title}</h2>
       </header>
 
-      <section className="current-speaker" aria-label="当前发言人">
-        <div
-          className="speaker-identity"
-          style={{ "--voice-level": visibleVoiceLevel.toFixed(3) } as CSSProperties}
-        >
-          <PersonaAvatar
-            persona={speaker?.persona}
-            size="hero"
-            className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"} ${visibleVoiceLevel > 0.08 ? "is-voice-active" : ""} ${speaker && !speaker.isOnline ? "is-offline" : ""}`}
-          />
-          <div className="voice-meter" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <span />
-            <span />
-          </div>
-          <span>
-            {speaker
-              ? speaker.side === "pro"
-                ? "正方发言"
-                : "反方发言"
-              : room.currentSide === "pro"
-                ? "等待正方发言"
-                : "等待反方发言"}
-          </span>
-        </div>
-        <div className="speaker-timer" aria-label="发言倒计时">
-          <strong>{secondsLeft === null ? "--" : secondsLeft}</strong>
-          <span>{secondsLeft === null ? "等待队列" : "秒"}</span>
-        </div>
-      </section>
-
-      <section className="side-members-board" aria-label="双方阵营">
+      <section className="debate-stage" aria-label="发言舞台">
         <SideMembers title="正方" side="pro" room={room} userId={userId} />
+
+        <section className="current-speaker" aria-label="当前发言人">
+          <div
+            className="speaker-identity"
+            style={{ "--voice-level": visibleVoiceLevel.toFixed(3) } as CSSProperties}
+          >
+            <div className="speaker-orbit">
+              <div className="voice-meter voice-meter-left" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+              <PersonaAvatar
+                persona={speaker?.persona}
+                size="hero"
+                className={`speaker-avatar ${speaker?.side === "con" ? "con-avatar" : "pro-avatar"} ${visibleVoiceLevel > 0.08 ? "is-voice-active" : ""} ${speaker && !speaker.isOnline ? "is-offline" : ""}`}
+              />
+              <div className="voice-meter voice-meter-right" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+                <span />
+                <span />
+              </div>
+            </div>
+            <span>
+              {speaker
+                ? speaker.side === "pro"
+                  ? "正方发言"
+                  : "反方发言"
+                : room.currentSide === "pro"
+                  ? "等待正方发言"
+                  : "等待反方发言"}
+            </span>
+          </div>
+          <div className="speaker-timer" aria-label="发言倒计时">
+            <strong>{secondsLeft === null ? "--" : secondsLeft}</strong>
+            <span>{secondsLeft === null ? "等待队列" : "秒"}</span>
+          </div>
+        </section>
+
         <SideMembers title="反方" side="con" room={room} userId={userId} />
       </section>
 
@@ -95,6 +109,12 @@ export function ActiveDebateRoom({
           <Square size={18} />
           结束发言
         </button>
+        {isHost ? (
+          <button className="close-active-room-button" type="button" onClick={onCloseRoom}>
+            <LogOut size={18} />
+            解散房间
+          </button>
+        ) : null}
       </footer>
     </section>
   );

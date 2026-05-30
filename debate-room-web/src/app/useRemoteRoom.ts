@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DebateSide, RoomState, TopicCategory } from "../domain/types";
+import type { DebateSide, Persona, RoomState, TopicCategory } from "../domain/types";
 import { config } from "./config";
 
 interface CreateRoomResponse {
@@ -12,6 +12,7 @@ export interface LobbyRoom {
   category: TopicCategory;
   status: "waiting" | "active";
   topicTitle: string;
+  personas: Persona[];
   participantCount: number;
   onlineCount: number;
   maxParticipants: number;
@@ -26,7 +27,7 @@ interface RemoteRoomState extends Omit<RoomState, "cooldownUntil"> {
 
 interface ServerMessage {
   type: string;
-  data: RemoteRoomState | VoiceSignal;
+  data: RemoteRoomState | VoiceSignal | null;
 }
 
 export interface VoiceSignal {
@@ -92,6 +93,18 @@ export function useRemoteRoom() {
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data) as ServerMessage;
       if (message.type === "room_state") {
+        if (!message.data) {
+          manualCloseRef.current = true;
+          clearReconnectTimer();
+          socket.close();
+          setConnectionStatus("idle");
+          setRoom(null);
+          setUserId(null);
+          clearStoredSession(sessionRef.current?.roomId);
+          sessionRef.current = null;
+          window.history.replaceState({}, "", window.location.pathname);
+          return;
+        }
         setRoom(normalizeRoom(message.data as RemoteRoomState, nextUserId));
       }
       if (message.type === "voice_signal") {

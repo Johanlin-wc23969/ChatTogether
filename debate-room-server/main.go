@@ -110,6 +110,7 @@ type RoomSummary struct {
 	Category         TopicCategory `json:"category"`
 	Status           RoomStatus    `json:"status"`
 	TopicTitle       string        `json:"topicTitle"`
+	Personas         []Persona     `json:"personas"`
 	ParticipantCount int           `json:"participantCount"`
 	OnlineCount      int           `json:"onlineCount"`
 	MaxParticipants  int           `json:"maxParticipants"`
@@ -487,6 +488,7 @@ func (h *RoomHub) listRooms() []RoomSummary {
 			Category:         room.Category,
 			Status:           room.Status,
 			TopicTitle:       room.Topic.Title,
+			Personas:         onlinePersonas(room),
 			ParticipantCount: len(room.Participants),
 			OnlineCount:      onlineParticipantCount(room),
 			MaxParticipants:  room.MaxParticipants,
@@ -499,6 +501,16 @@ func (h *RoomHub) listRooms() []RoomSummary {
 		return summaries[i].CreatedAt > summaries[j].CreatedAt
 	})
 	return summaries
+}
+
+func onlinePersonas(room *RoomState) []Persona {
+	personas := []Persona{}
+	for _, participant := range room.Participants {
+		if participant.IsOnline {
+			personas = append(personas, participant.Persona)
+		}
+	}
+	return personas
 }
 
 func (h *RoomHub) addClient(roomID, userID string, conn *websocket.Conn) bool {
@@ -646,6 +658,17 @@ func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) 
 			endSpeaking(room, time.Now())
 		}
 	case "leave_room":
+		participant := findParticipant(room, userID)
+		if room.Status == StatusActive {
+			if participant == nil || !participant.IsHost {
+				break
+			}
+			delete(h.rooms, roomID)
+			delete(h.disconnectTimers, roomID)
+			break
+		}
+		h.cancelDisconnectTimerLocked(roomID, userID)
+		wasCurrentSpeaker := room.CurrentSpeakerID != nil && *room.CurrentSpeakerID == userID
 		removeParticipant(room, userID)
 		if len(room.Participants) == 0 {
 			delete(h.rooms, roomID)
@@ -653,6 +676,10 @@ func (h *RoomHub) handleClientMessage(roomID, userID string, msg ClientMessage) 
 			delete(h.disconnectTimers, roomID)
 		} else {
 			ensureHost(room)
+			if wasCurrentSpeaker {
+				room.CurrentSide = oppositeSide(room.CurrentSide)
+				tryStartNextSpeaker(room, time.Now())
+			}
 		}
 	case "voice_signal":
 		var data VoiceSignalPayload
@@ -702,6 +729,12 @@ func (h *RoomHub) broadcast(roomID string) {
 		if err := conn.WriteJSON(msg); err != nil {
 			_ = h.removeClient(roomID, conn)
 		}
+	}
+	if snapshot == nil {
+		h.mu.Lock()
+		delete(h.clients, roomID)
+		delete(h.disconnectTimers, roomID)
+		h.mu.Unlock()
 	}
 }
 

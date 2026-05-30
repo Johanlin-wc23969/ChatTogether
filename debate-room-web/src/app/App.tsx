@@ -99,6 +99,7 @@ export function App() {
           userId={roomApi.userId}
           onRequestLocalSpeak={roomApi.requestLocalSpeak}
           onEndLocalSpeaking={roomApi.endLocalSpeaking}
+          onCloseRoom={roomApi.closeRoom}
           voiceStatus={voice.voiceStatus}
           voiceError={voice.voiceError}
           voiceEffectLabel={voice.voiceEffectLabel}

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { categoryNames, topicCategories } from "../domain/content";
 import type { TopicCategory } from "../domain/types";
 import type { LobbyRoom } from "../app/useRemoteRoom";
+import { PersonaAvatar } from "./PersonaAvatar";
 
 interface CreateRoomPanelProps {
   category: TopicCategory;
@@ -37,8 +38,9 @@ export function CreateRoomPanel({
       <div className="lobby-panel">
         <div className="panel-heading lobby-heading">
           <div>
-            <h2>大厅</h2>
-            <p>当前可加入的匿名辩论房</p>
+            <p className="eyebrow">Room Lobby</p>
+            <h2>匿名辩论大厅</h2>
+            <p>选择一个房间加入，或者开启一场新的匿名辩论</p>
           </div>
           <div className="lobby-heading-actions">
             <button type="button" onClick={onRefreshRooms} aria-label="刷新房间列表">
@@ -51,22 +53,50 @@ export function CreateRoomPanel({
           </div>
         </div>
 
+        <div className="lobby-hero" aria-hidden="true">
+          <div>
+            <span>今日热场</span>
+            <strong>选个阵营，用头像开麦</strong>
+          </div>
+          <div className="hero-avatar-stack">
+            <span>🐻</span>
+            <span>🐶</span>
+            <span>🐱</span>
+          </div>
+        </div>
+
         <div className="room-list" aria-label="当前房间">
           {lobbyRooms.length === 0 ? (
-            <div className="empty-lobby">暂无房间</div>
+            <div className="empty-lobby">
+              <strong>暂无房间</strong>
+              <span>点击右上角创建第一间匿名辩论房</span>
+            </div>
           ) : (
             lobbyRooms.map((room) => (
               <article className="room-list-item" key={room.roomId}>
                 <div>
-                  <p className="eyebrow">{categoryNames[room.category]}</p>
+                  <div className="room-card-topline">
+                    <p className="eyebrow">{categoryNames[room.category]}</p>
+                    <span className={`room-status ${room.status === "waiting" ? "is-waiting" : "is-active"}`}>
+                      {room.status === "waiting" ? "等待中" : "辩论中"}
+                    </span>
+                  </div>
                   <h3>{room.topicTitle}</h3>
-                  <span>{room.roomId}</span>
+                  <div className="room-card-foot">
+                    <span className="room-list-code">{room.roomId}</span>
+                    <div className="room-avatar-stack" aria-hidden="true">
+                      {room.personas.slice(0, 4).map((persona) => (
+                        <PersonaAvatar key={persona.id} persona={persona} size="small" />
+                      ))}
+                      {room.onlineCount > 4 ? <span>+{room.onlineCount - 4}</span> : null}
+                    </div>
+                  </div>
                 </div>
                 <div className="room-list-meta">
                   <strong>
                     {room.onlineCount}/{room.maxParticipants}
                   </strong>
-                  <span>{room.status === "waiting" ? "等待中" : "辩论中"}</span>
+                  <span>online</span>
                 </div>
                 <button type="button" onClick={() => onJoinRoom(room.roomId)} disabled={!room.canJoin}>
                   <Users size={17} />
