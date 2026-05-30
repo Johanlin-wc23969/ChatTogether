@@ -16,7 +16,9 @@
 </p>
 
 > 🎬 **Preview Placeholder**
->  <a href="https://chat-together-mu.vercel.app" target="_blank">
+>
+> [点击进入项目体验](https://chat-together-phi.vercel.app/)
+>
 > 此处放置 Lobby & Debate Room 的炫酷 GIF 动图或卡片设计图。
 >
 > 推荐文件路径：`docs/assets/anonymous-debate-room-preview.gif`
