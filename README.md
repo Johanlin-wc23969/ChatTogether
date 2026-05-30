@@ -188,7 +188,7 @@
 ### Architecture
 
 ```text
-anonymous-debate-room/
+ChatTogether/
 ├── debate-room-web/       # React + TypeScript + Vite frontend
 ├── debate-room-server/    # Go + net/http + gorilla/websocket backend
 ├── DEPLOYMENT.md          # deployment notes
