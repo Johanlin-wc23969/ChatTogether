@@ -10,7 +10,7 @@
   <img src="https://img.shields.io/github/stars/your-name/anonymous-debate-room?style=for-the-badge&logo=github&color=8b5cf6&labelColor=17142f" alt="GitHub Stars" />
   <img src="https://img.shields.io/github/contributors/your-name/anonymous-debate-room?style=for-the-badge&color=22d3ee&labelColor=17142f" alt="Contributors" />
   <img src="https://img.shields.io/badge/React%20%2B%20Go%20%2B%20WebRTC-Neon%20Stack-ff6da9?style=for-the-badge&logo=react&logoColor=white&labelColor=17142f" alt="Tech Stack" />
-  <a href="chat-together-phi.vercel.app">
+  <a href="https://chat-together-phi.vercel.app">
     <img src="https://img.shields.io/badge/Live%20Demo-Enter%20Lobby-43ff93?style=for-the-badge&logo=vercel&logoColor=white&labelColor=17142f" alt="Live Demo" />
   </a>
 </p>
