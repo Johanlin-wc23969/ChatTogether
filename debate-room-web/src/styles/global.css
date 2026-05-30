@@ -1,17 +1,20 @@
 :root {
   color-scheme: light;
-  --ink: #1c2430;
-  --muted: #687385;
-  --paper: #fbfbf7;
-  --panel: #ffffff;
-  --line: #dfe5df;
-  --green: #1f7a5f;
-  --green-soft: #dff2e9;
-  --rose: #b64954;
-  --rose-soft: #f7e2e4;
-  --amber: #c7802d;
-  --blue: #2f65b8;
-  --shadow: 0 18px 60px rgba(29, 41, 57, 0.12);
+  --ink: #f8fbff;
+  --muted: #a7b0d9;
+  --paper: #100e2a;
+  --panel: rgba(24, 24, 62, 0.86);
+  --panel-strong: rgba(38, 35, 92, 0.92);
+  --line: rgba(154, 135, 255, 0.22);
+  --green: #43ff93;
+  --green-soft: rgba(67, 255, 147, 0.16);
+  --rose: #ff6da9;
+  --rose-soft: rgba(255, 109, 169, 0.15);
+  --amber: #ffd25a;
+  --blue: #6fd2ff;
+  --violet: #8b5cf6;
+  --cyan: #22d3ee;
+  --shadow: 0 22px 70px rgba(0, 0, 0, 0.36);
 }
 
 * {
@@ -23,9 +26,9 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    linear-gradient(135deg, rgba(31, 122, 95, 0.08), transparent 34%),
-    linear-gradient(225deg, rgba(182, 73, 84, 0.1), transparent 38%),
-    var(--paper);
+    radial-gradient(ellipse at 16% 8%, rgba(139, 92, 246, 0.36), transparent 34%),
+    radial-gradient(ellipse at 86% 0%, rgba(34, 211, 238, 0.22), transparent 30%),
+    linear-gradient(145deg, #201247 0%, #0e1234 48%, #160c2e 100%);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
